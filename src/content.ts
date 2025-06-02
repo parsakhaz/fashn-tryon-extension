@@ -5,6 +5,7 @@
 interface TryOnModalElement extends HTMLDivElement {
     contentDiv: HTMLDivElement;
     closeButton: HTMLButtonElement;
+    lastGarmentImageUrl?: string;
     show: (message: string, isError?: boolean, imageUrl?: string | null) => void;
     showLoading: (garmentImageUrl: string, modelImageUrl: string, predictionId?: string) => void;
     hide: () => void;
@@ -39,7 +40,85 @@ function getTryOnModal(): TryOnModalElement {
 
     modal.show = (message, isError = false, imageUrl = null) => {
         if (imageUrl) {
-            modal.contentDiv.innerHTML = `<img src="${imageUrl}" class="fashn-tryon-modal-image" alt="Try-On Result"/>`;
+            modal.contentDiv.innerHTML = `
+                <div class="fashn-tryon-result-container">
+                    <img src="${imageUrl}" class="fashn-tryon-modal-image" alt="Try-On Result"/>
+                    <div class="fashn-tryon-result-buttons">
+                        <button id="fashn-try-again-btn" class="fashn-result-button fashn-try-again-button">
+                            🔄 Try Again
+                        </button>
+                        <button id="fashn-download-btn" class="fashn-result-button fashn-download-button">
+                            💾 Download
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners for the buttons
+            const tryAgainBtn = modal.contentDiv.querySelector('#fashn-try-again-btn') as HTMLButtonElement;
+            const downloadBtn = modal.contentDiv.querySelector('#fashn-download-btn') as HTMLButtonElement;
+            
+            if (tryAgainBtn) {
+                tryAgainBtn.onclick = () => {
+                    modal.hide();
+                    // Trigger a new try-on with the same garment
+                    // Note: We'll need to store the last garment URL to make this work
+                    if (modal.lastGarmentImageUrl) {
+                        // Re-trigger the try-on process
+                        const event = new CustomEvent('fashn-retry-tryon', { 
+                            detail: { garmentImageUrl: modal.lastGarmentImageUrl } 
+                        });
+                        document.dispatchEvent(event);
+                    }
+                };
+            }
+            
+            if (downloadBtn) {
+                downloadBtn.onclick = async () => {
+                    try {
+                        // Show loading state on button
+                        downloadBtn.disabled = true;
+                        downloadBtn.innerHTML = '⏳ Downloading...';
+                        
+                        // Fetch the image as a blob
+                        const response = await fetch(imageUrl);
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch image');
+                        }
+                        
+                        const blob = await response.blob();
+                        
+                        // Create a temporary URL for the blob
+                        const blobUrl = URL.createObjectURL(blob);
+                        
+                        // Create a temporary link to download the blob
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = `fashn-tryon-result-${Date.now()}.png`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // Clean up the blob URL
+                        URL.revokeObjectURL(blobUrl);
+                        
+                        // Reset button state
+                        downloadBtn.disabled = false;
+                        downloadBtn.innerHTML = '💾 Download';
+                    } catch (error) {
+                        console.error('Download failed:', error);
+                        
+                        // Reset button state and show error
+                        downloadBtn.disabled = false;
+                        downloadBtn.innerHTML = '❌ Failed';
+                        
+                        // Reset to normal state after 2 seconds
+                        setTimeout(() => {
+                            downloadBtn.innerHTML = '💾 Download';
+                        }, 2000);
+                    }
+                };
+            }
         } else {
             modal.contentDiv.innerHTML = `<p style="color: ${isError ? '#e53e3e' : '#2d3748'}; font-size: 1.1rem; padding: 20px;">${message}</p>`;
         }
@@ -64,10 +143,6 @@ function getTryOnModal(): TryOnModalElement {
                             <div class="fashn-arrow">→</div>
                             <div class="fashn-arrow">→</div>
                         </div>
-                        <div class="fashn-ai-badge">
-                            <span class="fashn-ai-text">FASHN AI</span>
-                            <div class="fashn-spinner"></div>
-                        </div>
                     </div>
                     
                     <div class="fashn-image-section">
@@ -77,10 +152,11 @@ function getTryOnModal(): TryOnModalElement {
                         <p class="fashn-image-label">Selected Item</p>
                     </div>
                 </div>
-                ${predictionId ? `<p class="fashn-prediction-id">Processing ID: ${predictionId}</p>` : ''}
                 <div class="fashn-progress-bar">
                     <div class="fashn-progress-fill"></div>
                 </div>
+                <p class="fashn-powered-by">powered by FASHN AI api</p>
+                ${predictionId ? `<p class="fashn-prediction-id">Processing ID: ${predictionId}</p>` : ''}
             </div>
         `;
         modal.contentDiv.innerHTML = loadingHTML;
@@ -114,6 +190,50 @@ chrome.runtime.onMessage.addListener((request) => {
         } else {
             modal.show('No result received or an unexpected issue occurred.', true);
         }
+    }
+});
+
+// Listen for retry try-on events
+document.addEventListener('fashn-retry-tryon', async (event: Event) => {
+    const customEvent = event as CustomEvent;
+    const { garmentImageUrl } = customEvent.detail;
+    
+    // Get model image from storage
+    let modelImageUrl = '';
+    try {
+        const result = await chrome.storage.local.get(['modelImageBase64']);
+        modelImageUrl = result.modelImageBase64 || '';
+    } catch (error) {
+        console.error('Failed to get model image from storage:', error);
+        return;
+    }
+
+    const modal = getTryOnModal();
+    
+    if (!garmentImageUrl || !modelImageUrl) {
+        modal.show('Could not retry try-on. Missing image data.', true);
+        return;
+    }
+
+    // Show loading screen and initiate new try-on
+    modal.showLoading(garmentImageUrl, modelImageUrl);
+    modal.lastGarmentImageUrl = garmentImageUrl;
+
+    try {
+        const initialResponse = await chrome.runtime.sendMessage({
+            action: "initiateTryOn",
+            garmentImageSrc: garmentImageUrl,
+        });
+
+        if (initialResponse && initialResponse.error) {
+            modal.show(`Error: ${initialResponse.error}`, true);
+        } else if (initialResponse && initialResponse.status === "processing") {
+            modal.showLoading(garmentImageUrl, modelImageUrl, initialResponse.predictionId);
+        }
+    } catch (error: unknown) {
+        console.error("Content Script: Error retrying try-on:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        modal.show(`Communication error with extension: ${errorMessage}`, true);
     }
 });
 
@@ -275,6 +395,9 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
 
         // Show the new visual loading screen
         modal.showLoading(imageUrl, modelImageUrl);
+
+        // Store the garment URL for the "Try Again" functionality
+        modal.lastGarmentImageUrl = imageUrl;
 
         try {
             // This initial response is just an acknowledgement or quick error.

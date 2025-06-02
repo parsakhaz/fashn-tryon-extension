@@ -70,7 +70,7 @@ const Options = () => {
 
   return (
     <div className="p-6 min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAFAFA' }}>
-      <div className="max-w-xl w-full p-8 rounded-xl shadow-2xl" style={{ backgroundColor: 'white' }}>
+      <div className="max-w-xl w-full p-8 shadow-2xl" style={{ backgroundColor: 'white' }}>
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold" style={{ color: '#1A1A1A' }}>
             Try-On Settings
@@ -79,7 +79,7 @@ const Options = () => {
         </div>
 
         {(statusMessage || errorMessage) && (
-          <div className={`mb-6 p-4 rounded-md text-sm font-medium ${
+          <div className={`mb-6 p-4 text-sm font-medium ${
             errorMessage
               ? 'bg-red-100 text-red-700 border border-red-300'
               : 'bg-green-100 text-green-700 border border-green-300'
@@ -97,9 +97,9 @@ const Options = () => {
             type="file"
             accept="image/png, image/jpeg, image/webp"
             onChange={handleImageUpload}
-            className="block w-full text-sm rounded-lg border cursor-pointer
+            className="block w-full text-sm border cursor-pointer
                        file:mr-4 file:py-3 file:px-6
-                       file:rounded-l-lg file:border-0
+                       file:border-0
                        file:text-sm file:font-semibold
                        hover:file:opacity-90 focus:outline-none focus:ring-2 focus:border-transparent"
             style={{ 
@@ -109,9 +109,9 @@ const Options = () => {
             }}
           />
           {modelImagePreview && (
-            <div className="mt-6 p-4 border rounded-lg text-center" style={{ backgroundColor: '#FAFAFA', borderColor: '#333333' }}>
+            <div className="mt-6 p-4 border text-center" style={{ backgroundColor: '#FAFAFA', borderColor: '#333333' }}>
               <p className="text-sm mb-3 font-medium" style={{ color: '#1A1A1A' }}>Current Model Preview:</p>
-              <img src={modelImagePreview} alt="Model Preview" className="max-w-full max-h-80 rounded-md shadow-lg mx-auto" />
+              <img src={modelImagePreview} alt="Model Preview" className="max-w-full max-h-80 shadow-lg mx-auto" />
             </div>
           )}
         </div>
@@ -120,14 +120,14 @@ const Options = () => {
           <h2 className="text-2xl font-semibold mb-4" style={{ color: '#1A1A1A' }}>FASHN AI API Key</h2>
           <p className="text-sm mb-4" style={{ color: '#333333' }}>
             Enter your API key from FASHN AI. This is required to enable the try-on feature.
-            You can get your key from <a href="https://app.fashn.ai/settings/api" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70" style={{ color: '#1A1A1A' }}>FASHN AI Settings</a>.
+            You can get your key from <a href="https://app.fashn.ai/api" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70" style={{ color: '#1A1A1A' }}>FASHN AI Settings</a>.
           </p>
           <input
             type="password"
             value={apiKey}
             onChange={handleApiKeyChange}
             placeholder="fa-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-            className="w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150 mb-4"
+            className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150 mb-4"
             style={{ 
               borderColor: '#333333',
               backgroundColor: '#FAFAFA',
@@ -136,7 +136,7 @@ const Options = () => {
           />
           <button
             onClick={saveApiKey}
-            className="w-full font-bold py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 ease-in-out transform hover:scale-105 hover:opacity-90"
+            className="w-full font-bold py-3 px-4 shadow-md hover:shadow-lg transition-all duration-200 ease-in-out transform hover:scale-105 hover:opacity-90"
             style={{ 
               backgroundColor: '#1A1A1A', 
               color: '#FAFAFA' 

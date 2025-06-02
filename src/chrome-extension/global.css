@@ -1,3 +1,6 @@
+/* Import Metrophobic font for clean, modern typography */
+@import url('https://fonts.googleapis.com/css2?family=Metrophobic&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,6 +9,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family: 'Metrophobic', sans-serif;
 }
 
 html {

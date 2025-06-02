@@ -29,7 +29,7 @@ export const Popup = () => {
 
       {setupComplete ? (
         <div className="text-center space-y-4">
-          <div className="border rounded-lg p-4" style={{ backgroundColor: '#F0F9FF', borderColor: '#E0F2FE' }}>
+          <div className="border p-4" style={{ backgroundColor: '#F0F9FF', borderColor: '#E0F2FE' }}>
             <div className="flex items-center justify-center space-x-2" style={{ color: '#0F766E' }}>
               <span className="text-xl">✅</span>
               <span className="font-medium text-base">Ready to use!</span>
@@ -41,7 +41,7 @@ export const Popup = () => {
           
           <button
             onClick={openOptions}
-            className="w-full border rounded-lg py-3 px-4 text-sm font-medium transition-colors hover:opacity-80"
+            className="w-full border py-3 px-4 text-sm font-medium transition-colors hover:opacity-80"
             style={{ 
               backgroundColor: '#FAFAFA', 
               borderColor: '#333333', 
@@ -53,7 +53,7 @@ export const Popup = () => {
         </div>
       ) : (
         <div className="text-center space-y-4">
-          <div className="border rounded-lg p-4" style={{ backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }}>
+          <div className="border p-4" style={{ backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }}>
             <div className="flex items-center justify-center space-x-2" style={{ color: '#92400E' }}>
               <span className="text-xl">⚠️</span>
               <span className="font-medium text-base">Setup Required</span>
@@ -66,7 +66,7 @@ export const Popup = () => {
           
           <button
             onClick={openOptions}
-            className="w-full py-3 px-4 rounded-lg font-medium text-base transition-all hover:opacity-90"
+            className="w-full py-3 px-4 font-medium text-base transition-all hover:opacity-90"
             style={{ 
               backgroundColor: '#1A1A1A', 
               color: '#FAFAFA' 
@@ -81,7 +81,7 @@ export const Popup = () => {
         <p className="text-sm text-center" style={{ color: '#333333' }}>
           Get your API key from{" "}
           <a 
-            href="https://app.fashn.ai/settings/api" 
+            href="https://app.fashn.ai/api" 
             target="_blank" 
             rel="noopener noreferrer"
             className="underline hover:opacity-70"

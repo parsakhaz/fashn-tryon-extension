@@ -1,3 +1,6 @@
+/* Import Metrophobic font for clean, modern typography */
+@import url('https://fonts.googleapis.com/css2?family=Metrophobic&display=swap');
+
 /* FASHN AI Try-On Extension Styles */
 
 /* Try-On Button */
@@ -58,7 +61,6 @@
 .fashn-tryon-modal-content-wrapper {
     position: relative;
     background: #FAFAFA;
-    border-radius: 16px;
     max-width: 90vw;
     max-height: 90vh;
     overflow-y: auto;
@@ -72,7 +74,6 @@
     right: 16px;
     width: 32px;
     height: 32px;
-    border-radius: 50%;
     background: rgba(51, 51, 51, 0.1);
     border: none;
     font-size: 20px;
@@ -99,7 +100,6 @@
 .fashn-tryon-modal-image {
     max-width: 100%;
     max-height: 70vh;
-    border-radius: 12px;
     box-shadow: 0 8px 32px rgba(26, 26, 26, 0.2);
 }
 
@@ -112,10 +112,13 @@
 }
 
 .fashn-loading-title {
+    font-family: 'Metrophobic', sans-serif;
     font-size: 28px;
-    font-weight: bold;
+    font-weight: 400;
     color: #1A1A1A;
     margin-bottom: 30px;
+    text-align: center;
+    letter-spacing: 0.5px;
 }
 
 .fashn-images-container {
@@ -124,6 +127,7 @@
     justify-content: space-between;
     margin-bottom: 30px;
     gap: 30px;
+    margin-top: 20px;
 }
 
 .fashn-image-section {
@@ -136,7 +140,6 @@
 .fashn-image-wrapper {
     width: 180px;
     height: 240px;
-    border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 8px 32px rgba(26, 26, 26, 0.15);
     border: 3px solid #FAFAFA;
@@ -152,9 +155,11 @@
 
 .fashn-image-label {
     margin-top: 12px;
-    font-size: 16px;
-    font-weight: 600;
-    color: #333333;
+    font-size: 14px;
+    font-weight: 400;
+    color: #555555;
+    font-family: 'Metrophobic', sans-serif;
+    letter-spacing: 0.2px;
 }
 
 /* Loading Animation */
@@ -196,36 +201,15 @@
     }
 }
 
-.fashn-ai-badge {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
-    background: #1A1A1A;
-    border-radius: 20px;
-    color: #FAFAFA;
-    box-shadow: 0 4px 12px rgba(26, 26, 26, 0.3);
-}
-
-.fashn-ai-text {
-    font-size: 14px;
-    font-weight: bold;
-    letter-spacing: 1px;
-}
-
-.fashn-spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid rgba(250, 250, 250, 0.3);
-    border-top: 2px solid #FAFAFA;
-    border-radius: 50%;
-    animation: fashn-spin 1s linear infinite;
-}
-
-@keyframes fashn-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+/* Subtle "powered by" text */
+.fashn-powered-by {
+    font-family: 'Metrophobic', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    color: #888888;
+    margin: 15px 0 10px 0;
+    text-align: center;
+    letter-spacing: 0.3px;
 }
 
 /* Progress Bar */
@@ -233,7 +217,6 @@
     width: 100%;
     height: 6px;
     background: #333333;
-    border-radius: 3px;
     overflow: hidden;
     margin-bottom: 20px;
 }
@@ -241,7 +224,6 @@
 .fashn-progress-fill {
     height: 100%;
     background: #1A1A1A;
-    border-radius: 3px;
     animation: fashn-progress 3s ease-in-out infinite;
 }
 
@@ -267,7 +249,6 @@
     font-family: monospace;
     background: #FAFAFA;
     padding: 8px 12px;
-    border-radius: 6px;
     display: inline-block;
     border: 1px solid #333333;
 }
@@ -277,6 +258,7 @@
     .fashn-loading-container {
         min-width: auto;
         padding: 20px;
+        text-align: center;
     }
     
     .fashn-images-container {
@@ -300,5 +282,87 @@
     
     .fashn-loading-title {
         font-size: 24px;
+        text-align: center;
+        margin-bottom: 25px;
     }
+    
+    .fashn-tryon-result-buttons {
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+    }
+    
+    .fashn-result-button {
+        min-width: 200px;
+        width: 100%;
+        max-width: 280px;
+        padding: 14px 24px;
+        font-size: 15px;
+    }
+}
+
+/* Try-On Result Container and Buttons */
+.fashn-tryon-result-container {
+    text-align: center;
+}
+
+.fashn-tryon-result-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(51, 51, 51, 0.1);
+}
+
+.fashn-result-button {
+    padding: 12px 24px;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    min-width: 140px;
+}
+
+.fashn-try-again-button {
+    background: #1A1A1A;
+    color: #FAFAFA;
+}
+
+.fashn-try-again-button:hover {
+    background: #333333;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(26, 26, 26, 0.3);
+}
+
+.fashn-download-button {
+    background: #FAFAFA;
+    color: #1A1A1A;
+    border: 1px solid #333333;
+}
+
+.fashn-download-button:hover {
+    background: #F0F0F0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(26, 26, 26, 0.15);
+}
+
+.fashn-result-button:active {
+    transform: translateY(0);
+}
+
+.fashn-result-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.fashn-result-button:disabled:hover {
+    transform: none;
+    box-shadow: none;
 } 
