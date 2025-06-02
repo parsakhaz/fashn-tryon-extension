@@ -7,13 +7,24 @@ export const Popup = () => {
 
   useEffect(() => {
     chrome.storage.local.get(["modelImageBase64", "fashnApiKey"], (result) => {
+      console.log("Popup: Storage result:", result);
+      console.log("Popup: Model image exists:", !!result.modelImageBase64);
+      console.log("Popup: API key exists:", !!result.fashnApiKey);
       setHasApiKey(!!result.fashnApiKey);
       setHasModelImage(!!result.modelImageBase64);
     });
   }, []);
 
   const openOptions = () => {
-    chrome.runtime.openOptionsPage();
+    chrome.runtime.sendMessage({ action: "openOptions" });
+  };
+
+  const refreshStorageState = () => {
+    chrome.storage.local.get(["modelImageBase64", "fashnApiKey"], (result) => {
+      console.log("Popup: Manual refresh - Storage result:", result);
+      setHasApiKey(!!result.fashnApiKey);
+      setHasModelImage(!!result.modelImageBase64);
+    });
   };
 
   const setupComplete = hasApiKey && hasModelImage;
@@ -78,18 +89,32 @@ export const Popup = () => {
       )}
 
       <div className="mt-6 pt-4" style={{ borderTop: '1px solid #333333' }}>
-        <p className="text-sm text-center" style={{ color: '#333333' }}>
-          Get your API key from{" "}
-          <a 
-            href="https://app.fashn.ai/api" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="underline hover:opacity-70"
-            style={{ color: '#1A1A1A' }}
+        <div className="flex justify-between items-center mb-2">
+          <p className="text-sm" style={{ color: '#333333' }}>
+            Get your API key from{" "}
+            <a 
+              href="https://app.fashn.ai/api" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline hover:opacity-70"
+              style={{ color: '#1A1A1A' }}
+            >
+              FASHN AI Settings
+            </a>
+          </p>
+          <button
+            onClick={refreshStorageState}
+            className="text-xs px-2 py-1 border"
+            style={{ 
+              backgroundColor: '#FAFAFA', 
+              borderColor: '#333333', 
+              color: '#333333' 
+            }}
+            title="Refresh storage state"
           >
-            FASHN AI Settings
-          </a>
-        </p>
+            🔄
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -9,6 +9,9 @@ const Options = () => {
 
   useEffect(() => {
     chrome.storage.local.get(["modelImageBase64", "fashnApiKey"], (result) => {
+      console.log("Options: Storage result:", result);
+      console.log("Options: Model image exists:", !!result.modelImageBase64);
+      console.log("Options: API key exists:", !!result.fashnApiKey);
       if (result.modelImageBase64) {
         setModelImagePreview(result.modelImageBase64);
       }
@@ -42,8 +45,10 @@ const Options = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
+        console.log("Options: Saving model image to storage. Length:", base64String.length);
         setModelImagePreview(base64String);
         chrome.storage.local.set({ modelImageBase64: base64String }, () => {
+          console.log("Options: Model image saved to storage successfully");
           showTemporaryMessage("Model image saved!");
         });
       };
