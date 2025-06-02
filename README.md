@@ -205,4 +205,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Ready to revolutionize your online shopping experience? Install the FASHN AI Try-On extension and try on clothes virtually before you buy!** 👗✨
+**Install the FASHN AI Try-On extension and try on clothes virtually before you buy!** 👗✨
