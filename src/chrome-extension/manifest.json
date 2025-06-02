@@ -1,0 +1,42 @@
+{
+    "manifest_version": 3,
+    "name": "FASHN AI Try-On Extension",
+    "version": "1.1.0",
+    "action" : {
+      "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "description": "Virtually try on clothes from any website using FASHN AI.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://api.fashn.ai/*"
+  ],
+  "icons": {
+    "16": "public/16.png",
+    "32": "public/32.png",
+    "48": "public/48.png",
+    "192": "public/192.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
