@@ -5,6 +5,9 @@ A Chrome extension that enables virtual fashion try-on using FASHN AI technology
 ## 🎥 Demo
 
 See the extension in action:
+| Try-On Button | Loading Screen | Result |
+|---|---|---|
+| ![Setup](image1.png) | ![Button](image2.png) | ![Result](image3.png) |
 
 ![FASHN AI Try-On Demo](example-clip.mp4)
 
