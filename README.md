@@ -2,6 +2,15 @@
 
 A Chrome extension that enables virtual fashion try-on using FASHN AI technology. Simply hover over clothing images on any website to try them on virtually with your uploaded model image.
 
+## 🎥 Demo
+
+See the extension in action:
+
+![FASHN AI Try-On Demo](example-clip.mp4)
+
+*Hover over clothing images on any website to activate the virtual try-on feature*
+
+
 ## ✨ Features
 
 ### 🎯 Core Functionality
