@@ -9,8 +9,6 @@ See the extension in action:
 |---|---|---|
 | ![Setup](image1.png) | ![Button](image2.png) | ![Result](image3.png) |
 
-![FASHN AI Try-On Demo](example-clip.mp4)
-
 *Hover over clothing images on any website to activate the virtual try-on feature*
 
 
