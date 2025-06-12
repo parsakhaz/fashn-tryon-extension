@@ -6,8 +6,8 @@ interface TryOnModalElement extends HTMLDivElement {
     contentDiv: HTMLDivElement;
     closeButton: HTMLButtonElement;
     lastGarmentImageUrl?: string;
-    show: (message: string, isError?: boolean, imageUrl?: string | null) => void;
-    showLoading: (garmentImageUrl: string, modelImageUrl: string, predictionId?: string) => void;
+    show: (message: string, isError?: boolean, imageUrls?: string[] | string | null) => void;
+    showLoading: (garmentImageUrl: string, modelImageUrls: string[], predictionIds?: string[]) => void;
     hide: () => void;
 }
 
@@ -38,84 +38,90 @@ function getTryOnModal(): TryOnModalElement {
     modal.appendChild(modalContentWrapper);
     document.body.appendChild(modal);
 
-    modal.show = (message, isError = false, imageUrl = null) => {
-        if (imageUrl) {
-            modal.contentDiv.innerHTML = `
-                <div class="fashn-tryon-result-container">
-                    <img src="${imageUrl}" class="fashn-tryon-modal-image" alt="Try-On Result"/>
-                    <div class="fashn-tryon-result-buttons">
-                        <button id="fashn-try-again-btn" class="fashn-result-button fashn-try-again-button">
-                            🔄 Try Again
-                        </button>
-                        <button id="fashn-download-btn" class="fashn-result-button fashn-download-button">
-                            💾 Download
-                        </button>
+    modal.show = (message, isError = false, imageUrls = null) => {
+        if (imageUrls) {
+            // Handle multiple images or single image
+            const images = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
+            
+            if (images.length === 1) {
+                // Single image display (original behavior)
+                modal.contentDiv.innerHTML = `
+                    <div class="fashn-tryon-result-container">
+                        <img src="${images[0]}" class="fashn-tryon-modal-image" alt="Try-On Result"/>
+                        <div class="fashn-tryon-result-buttons">
+                            <button id="fashn-try-again-btn" class="fashn-result-button fashn-try-again-button">
+                                🔄 Try Again
+                            </button>
+                            <button id="fashn-download-btn" class="fashn-result-button fashn-download-button">
+                                💾 Download
+                            </button>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+                
+                // Add download functionality for single image
+                const downloadBtn = modal.contentDiv.querySelector('#fashn-download-btn') as HTMLButtonElement;
+                if (downloadBtn) {
+                    downloadBtn.onclick = () => downloadImage(images[0], downloadBtn);
+                }
+            } else {
+                // Multiple images display with carousel
+                modal.contentDiv.innerHTML = `
+                    <div class="fashn-tryon-result-container">
+                        <div class="fashn-carousel-container">
+                            <div class="fashn-carousel-header">
+                                <h3>Your Try-On Results (${images.length})</h3>
+                                <div class="fashn-carousel-counter">
+                                    <span id="current-image">1</span> / ${images.length}
+                                </div>
+                            </div>
+                            <div class="fashn-carousel-wrapper">
+                                <button class="fashn-carousel-btn fashn-carousel-prev" id="carousel-prev">‹</button>
+                                <div class="fashn-carousel-images">
+                                    ${images.map((url, index) => `
+                                        <img src="${url}" 
+                                             class="fashn-carousel-image ${index === 0 ? 'active' : ''}" 
+                                             alt="Try-On Result ${index + 1}"
+                                             data-index="${index}"/>
+                                    `).join('')}
+                                </div>
+                                <button class="fashn-carousel-btn fashn-carousel-next" id="carousel-next">›</button>
+                            </div>
+                            <div class="fashn-carousel-dots">
+                                ${images.map((_, index) => `
+                                    <button class="fashn-carousel-dot ${index === 0 ? 'active' : ''}" 
+                                            data-index="${index}"></button>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="fashn-tryon-result-buttons">
+                            <button id="fashn-try-again-btn" class="fashn-result-button fashn-try-again-button">
+                                🔄 Try Again
+                            </button>
+                            <button id="fashn-download-current-btn" class="fashn-result-button fashn-download-button">
+                                💾 Download Current
+                            </button>
+                            <button id="fashn-download-all-btn" class="fashn-result-button fashn-download-all-button">
+                                📥 Download All
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Setup carousel functionality
+                setupCarousel(images);
+            }
             
-            // Add event listeners for the buttons
+            // Add try again functionality
             const tryAgainBtn = modal.contentDiv.querySelector('#fashn-try-again-btn') as HTMLButtonElement;
-            const downloadBtn = modal.contentDiv.querySelector('#fashn-download-btn') as HTMLButtonElement;
-            
             if (tryAgainBtn) {
                 tryAgainBtn.onclick = () => {
                     modal.hide();
-                    // Trigger a new try-on with the same garment
-                    // Note: We'll need to store the last garment URL to make this work
                     if (modal.lastGarmentImageUrl) {
-                        // Re-trigger the try-on process
                         const event = new CustomEvent('fashn-retry-tryon', { 
                             detail: { garmentImageUrl: modal.lastGarmentImageUrl } 
                         });
                         document.dispatchEvent(event);
-                    }
-                };
-            }
-            
-            if (downloadBtn) {
-                downloadBtn.onclick = async () => {
-                    try {
-                        // Show loading state on button
-                        downloadBtn.disabled = true;
-                        downloadBtn.innerHTML = '⏳ Downloading...';
-                        
-                        // Fetch the image as a blob
-                        const response = await fetch(imageUrl);
-                        if (!response.ok) {
-                            throw new Error('Failed to fetch image');
-                        }
-                        
-                        const blob = await response.blob();
-                        
-                        // Create a temporary URL for the blob
-                        const blobUrl = URL.createObjectURL(blob);
-                        
-                        // Create a temporary link to download the blob
-                        const link = document.createElement('a');
-                        link.href = blobUrl;
-                        link.download = `fashn-tryon-result-${Date.now()}.png`;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        
-                        // Clean up the blob URL
-                        URL.revokeObjectURL(blobUrl);
-                        
-                        // Reset button state
-                        downloadBtn.disabled = false;
-                        downloadBtn.innerHTML = '💾 Download';
-                    } catch (error) {
-                        console.error('Download failed:', error);
-                        
-                        // Reset button state and show error
-                        downloadBtn.disabled = false;
-                        downloadBtn.innerHTML = '❌ Failed';
-                        
-                        // Reset to normal state after 2 seconds
-                        setTimeout(() => {
-                            downloadBtn.innerHTML = '💾 Download';
-                        }, 2000);
                     }
                 };
             }
@@ -125,16 +131,22 @@ function getTryOnModal(): TryOnModalElement {
         modal.style.display = 'flex';
     };
 
-    modal.showLoading = (garmentImageUrl, modelImageUrl, predictionId) => {
+    modal.showLoading = (garmentImageUrl, modelImageUrls, predictionIds) => {
         const loadingHTML = `
             <div class="fashn-loading-container">
-                <h3 class="fashn-loading-title">Creating Your Virtual Try-On</h3>
+                <h3 class="fashn-loading-title">Creating Your Virtual Try-On Results</h3>
+                <p class="fashn-loading-subtitle">Processing ${modelImageUrls.length} model image${modelImageUrls.length > 1 ? 's' : ''}</p>
                 <div class="fashn-images-container">
                     <div class="fashn-image-section">
-                        <div class="fashn-image-wrapper">
-                            <img src="${modelImageUrl}" alt="Your Model" class="fashn-loading-image" />
+                        <div class="fashn-models-grid">
+                            ${modelImageUrls.slice(0, 4).map((url, index) => `
+                                <div class="fashn-model-wrapper">
+                                    <img src="${url}" alt="Model ${index + 1}" class="fashn-loading-model-image" />
+                                    <span class="fashn-model-number">${index + 1}</span>
+                                </div>
+                            `).join('')}
                         </div>
-                        <p class="fashn-image-label">Your Model</p>
+                        <p class="fashn-image-label">Your Models</p>
                     </div>
                     
                     <div class="fashn-loading-animation">
@@ -156,7 +168,9 @@ function getTryOnModal(): TryOnModalElement {
                     <div class="fashn-progress-fill"></div>
                 </div>
                 <p class="fashn-powered-by">powered by FASHN AI api</p>
-                ${predictionId ? `<p class="fashn-prediction-id">Processing ID: ${predictionId}</p>` : ''}
+                ${predictionIds && predictionIds.length > 0 ? 
+                    `<p class="fashn-prediction-id">Processing ${predictionIds.length} job${predictionIds.length > 1 ? 's' : ''}</p>` : 
+                    ''}
             </div>
         `;
         modal.contentDiv.innerHTML = loadingHTML;
@@ -177,6 +191,145 @@ function getTryOnModal(): TryOnModalElement {
     return modal;
 }
 
+// Helper function to setup carousel functionality
+function setupCarousel(images: string[]) {
+    let currentIndex = 0;
+    
+    const updateCarousel = (newIndex: number) => {
+        // Hide all images
+        const allImages = document.querySelectorAll('.fashn-carousel-image');
+        const allDots = document.querySelectorAll('.fashn-carousel-dot');
+        
+        allImages.forEach((img, index) => {
+            (img as HTMLElement).classList.toggle('active', index === newIndex);
+        });
+        
+        allDots.forEach((dot, index) => {
+            (dot as HTMLElement).classList.toggle('active', index === newIndex);
+        });
+        
+        // Update counter
+        const counter = document.getElementById('current-image');
+        if (counter) counter.textContent = (newIndex + 1).toString();
+        
+        currentIndex = newIndex;
+    };
+    
+    // Previous button
+    const prevBtn = document.getElementById('carousel-prev');
+    if (prevBtn) {
+        prevBtn.onclick = () => {
+            const newIndex = currentIndex > 0 ? currentIndex - 1 : images.length - 1;
+            updateCarousel(newIndex);
+        };
+    }
+    
+    // Next button
+    const nextBtn = document.getElementById('carousel-next');
+    if (nextBtn) {
+        nextBtn.onclick = () => {
+            const newIndex = currentIndex < images.length - 1 ? currentIndex + 1 : 0;
+            updateCarousel(newIndex);
+        };
+    }
+    
+    // Dot buttons
+    const dots = document.querySelectorAll('.fashn-carousel-dot');
+    dots.forEach((dot, index) => {
+        (dot as HTMLElement).onclick = () => updateCarousel(index);
+    });
+    
+    // Download current image
+    const downloadCurrentBtn = document.getElementById('fashn-download-current-btn') as HTMLButtonElement;
+    if (downloadCurrentBtn) {
+        downloadCurrentBtn.onclick = () => {
+            downloadImage(images[currentIndex], downloadCurrentBtn);
+        };
+    }
+    
+    // Download all images
+    const downloadAllBtn = document.getElementById('fashn-download-all-btn') as HTMLButtonElement;
+    if (downloadAllBtn) {
+        downloadAllBtn.onclick = async () => {
+            downloadAllBtn.disabled = true;
+            downloadAllBtn.innerHTML = '⏳ Downloading...';
+            
+            try {
+                for (let i = 0; i < images.length; i++) {
+                    await downloadImage(images[i], null, `fashn-tryon-result-${i + 1}-${Date.now()}.png`);
+                    await new Promise(resolve => setTimeout(resolve, 500)); // Small delay between downloads
+                }
+                downloadAllBtn.innerHTML = '✅ Downloaded All';
+                setTimeout(() => {
+                    downloadAllBtn.innerHTML = '📥 Download All';
+                    downloadAllBtn.disabled = false;
+                }, 2000);
+            } catch (error) {
+                downloadAllBtn.innerHTML = '❌ Failed';
+                setTimeout(() => {
+                    downloadAllBtn.innerHTML = '📥 Download All';
+                    downloadAllBtn.disabled = false;
+                }, 2000);
+            }
+        };
+    }
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (document.getElementById('fashn-tryon-modal')?.style.display === 'flex') {
+            if (e.key === 'ArrowLeft') {
+                prevBtn?.click();
+                e.preventDefault();
+            } else if (e.key === 'ArrowRight') {
+                nextBtn?.click();
+                e.preventDefault();
+            }
+        }
+    });
+}
+
+// Helper function to download an image
+async function downloadImage(imageUrl: string, button: HTMLButtonElement | null, filename?: string): Promise<void> {
+    try {
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = '⏳ Downloading...';
+        }
+        
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+            throw new Error('Failed to fetch image');
+        }
+        
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename || `fashn-tryon-result-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        URL.revokeObjectURL(blobUrl);
+        
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '💾 Download';
+        }
+    } catch (error) {
+        console.error('Download failed:', error);
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '❌ Failed';
+            setTimeout(() => {
+                button.innerHTML = '💾 Download';
+            }, 2000);
+        }
+        throw error;
+    }
+}
+
 // Listen for results from the background script
 chrome.runtime.onMessage.addListener((request) => {
     if (request.action === "tryOnResult") {
@@ -185,8 +338,8 @@ chrome.runtime.onMessage.addListener((request) => {
             console.error("Content Script: Try-On Error from background:", request.error);
             modal.show(`Error: ${request.error}`, true);
         } else if (request.result && request.result.length > 0) {
-            console.log("Content Script: Try-On Result from background:", request.result[0]);
-            modal.show("Try-on successful!", false, request.result[0]);
+            console.log("Content Script: Try-On Results from background:", request.result);
+            modal.show("Try-on successful!", false, request.result);
         } else {
             modal.show('No result received or an unexpected issue occurred.', true);
         }
@@ -198,25 +351,25 @@ document.addEventListener('fashn-retry-tryon', async (event: Event) => {
     const customEvent = event as CustomEvent;
     const { garmentImageUrl } = customEvent.detail;
     
-    // Get model image from storage
-    let modelImageUrl = '';
+    // Get model images from storage
+    let modelImageUrls: string[] = [];
     try {
-        const result = await chrome.storage.local.get(['modelImageBase64']);
-        modelImageUrl = result.modelImageBase64 || '';
+        const result = await chrome.storage.local.get(['modelImagesBase64']);
+        modelImageUrls = result.modelImagesBase64 || [];
     } catch (error) {
-        console.error('Failed to get model image from storage:', error);
+        console.error('Failed to get model images from storage:', error);
         return;
     }
 
     const modal = getTryOnModal();
     
-    if (!garmentImageUrl || !modelImageUrl) {
+    if (!garmentImageUrl || modelImageUrls.length === 0) {
         modal.show('Could not retry try-on. Missing image data.', true);
         return;
     }
 
     // Show loading screen and initiate new try-on
-    modal.showLoading(garmentImageUrl, modelImageUrl);
+    modal.showLoading(garmentImageUrl, modelImageUrls);
     modal.lastGarmentImageUrl = garmentImageUrl;
 
     try {
@@ -228,7 +381,7 @@ document.addEventListener('fashn-retry-tryon', async (event: Event) => {
         if (initialResponse && initialResponse.error) {
             modal.show(`Error: ${initialResponse.error}`, true);
         } else if (initialResponse && initialResponse.status === "processing") {
-            modal.showLoading(garmentImageUrl, modelImageUrl, initialResponse.predictionId);
+            modal.showLoading(garmentImageUrl, modelImageUrls, initialResponse.predictionIds);
         }
     } catch (error: unknown) {
         console.error("Content Script: Error retrying try-on:", error);
@@ -327,13 +480,13 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
         e.stopPropagation();
         e.preventDefault();
 
-        // Get model image from storage first
-        let modelImageUrl = '';
+        // Get model images from storage first
+        let modelImageUrls: string[] = [];
         try {
-            const result = await chrome.storage.local.get(['modelImageBase64']);
-            modelImageUrl = result.modelImageBase64 || '';
+            const result = await chrome.storage.local.get(['modelImagesBase64']);
+            modelImageUrls = result.modelImagesBase64 || [];
         } catch (error) {
-            console.error('Failed to get model image from storage:', error);
+            console.error('Failed to get model images from storage:', error);
         }
 
         const modal = getTryOnModal();
@@ -343,7 +496,7 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
             return;
         }
 
-        if (!modelImageUrl) {
+        if (modelImageUrls.length === 0) {
             const modal = getTryOnModal();
             modal.contentDiv.innerHTML = `
                 <div style="padding: 20px; text-align: center;">
@@ -394,7 +547,7 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
         }
 
         // Show the new visual loading screen
-        modal.showLoading(imageUrl, modelImageUrl);
+        modal.showLoading(imageUrl, modelImageUrls);
 
         // Store the garment URL for the "Try Again" functionality
         modal.lastGarmentImageUrl = imageUrl;
@@ -411,7 +564,7 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
                  modal.show(`Error: ${initialResponse.error}`, true);
             } else if (initialResponse && initialResponse.status === "processing") {
                 // Update loading screen with prediction ID
-                modal.showLoading(imageUrl, modelImageUrl, initialResponse.predictionId);
+                modal.showLoading(imageUrl, modelImageUrls, initialResponse.predictionIds);
             }
             // Else: background script will send a message with the final result or error
         } catch (error: unknown) {

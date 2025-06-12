@@ -103,6 +103,130 @@
     box-shadow: 0 8px 32px rgba(26, 26, 26, 0.2);
 }
 
+/* Carousel Styles */
+.fashn-carousel-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.fashn-carousel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 0 10px;
+}
+
+.fashn-carousel-header h3 {
+    font-family: 'Metrophobic', sans-serif;
+    font-size: 24px;
+    font-weight: 400;
+    color: #1A1A1A;
+    margin: 0;
+}
+
+.fashn-carousel-counter {
+    font-family: 'Metrophobic', sans-serif;
+    font-size: 16px;
+    color: #666666;
+    background: #F0F0F0;
+    padding: 4px 12px;
+    border: 1px solid #CCCCCC;
+}
+
+.fashn-carousel-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.fashn-carousel-images {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    height: 500px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(26, 26, 26, 0.2);
+    border: 2px solid #FAFAFA;
+}
+
+.fashn-carousel-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+}
+
+.fashn-carousel-image.active {
+    opacity: 1;
+    z-index: 2;
+}
+
+.fashn-carousel-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    background: rgba(250, 250, 250, 0.9);
+    border: 1px solid #333333;
+    font-size: 24px;
+    color: #1A1A1A;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 3;
+}
+
+.fashn-carousel-btn:hover {
+    background: #FAFAFA;
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 4px 12px rgba(26, 26, 26, 0.2);
+}
+
+.fashn-carousel-prev {
+    left: -50px;
+}
+
+.fashn-carousel-next {
+    right: -50px;
+}
+
+.fashn-carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.fashn-carousel-dot {
+    width: 12px;
+    height: 12px;
+    border: none;
+    background: #CCCCCC;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.fashn-carousel-dot.active {
+    background: #1A1A1A;
+    transform: scale(1.2);
+}
+
+.fashn-carousel-dot:hover {
+    background: #666666;
+}
+
 /* Loading Screen Styles */
 .fashn-loading-container {
     padding: 40px;
@@ -116,9 +240,18 @@
     font-size: 28px;
     font-weight: 400;
     color: #1A1A1A;
-    margin-bottom: 30px;
+    margin-bottom: 10px;
     text-align: center;
     letter-spacing: 0.5px;
+}
+
+.fashn-loading-subtitle {
+    font-family: 'Metrophobic', sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    color: #666666;
+    margin-bottom: 30px;
+    text-align: center;
 }
 
 .fashn-images-container {
@@ -151,6 +284,47 @@
     height: 100%;
     object-fit: cover;
     object-position: center;
+}
+
+/* Multiple Models Grid */
+.fashn-models-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    width: 180px;
+    margin: 0 auto;
+}
+
+.fashn-model-wrapper {
+    position: relative;
+    width: 80px;
+    height: 110px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(26, 26, 26, 0.15);
+    border: 2px solid #FAFAFA;
+}
+
+.fashn-loading-model-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+.fashn-model-number {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: rgba(26, 26, 26, 0.8);
+    color: #FAFAFA;
+    font-size: 10px;
+    font-weight: bold;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Metrophobic', sans-serif;
 }
 
 .fashn-image-label {
@@ -253,6 +427,86 @@
     border: 1px solid #333333;
 }
 
+/* Try-On Result Container and Buttons */
+.fashn-tryon-result-container {
+    text-align: center;
+}
+
+.fashn-tryon-result-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(51, 51, 51, 0.1);
+    flex-wrap: wrap;
+}
+
+.fashn-result-button {
+    padding: 12px 20px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    min-width: 120px;
+    font-family: 'Metrophobic', sans-serif;
+}
+
+.fashn-try-again-button {
+    background: #1A1A1A;
+    color: #FAFAFA;
+}
+
+.fashn-try-again-button:hover {
+    background: #333333;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(26, 26, 26, 0.3);
+}
+
+.fashn-download-button {
+    background: #FAFAFA;
+    color: #1A1A1A;
+    border: 1px solid #333333;
+}
+
+.fashn-download-button:hover {
+    background: #F0F0F0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(26, 26, 26, 0.15);
+}
+
+.fashn-download-all-button {
+    background: #F0F9FF;
+    color: #0F766E;
+    border: 1px solid #0F766E;
+}
+
+.fashn-download-all-button:hover {
+    background: #E0F2FE;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.15);
+}
+
+.fashn-result-button:active {
+    transform: translateY(0);
+}
+
+.fashn-result-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.fashn-result-button:disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .fashn-loading-container {
@@ -280,6 +534,15 @@
         height: 200px;
     }
     
+    .fashn-models-grid {
+        width: 140px;
+    }
+    
+    .fashn-model-wrapper {
+        width: 60px;
+        height: 85px;
+    }
+    
     .fashn-loading-title {
         font-size: 24px;
         text-align: center;
@@ -299,70 +562,36 @@
         padding: 14px 24px;
         font-size: 15px;
     }
-}
-
-/* Try-On Result Container and Buttons */
-.fashn-tryon-result-container {
-    text-align: center;
-}
-
-.fashn-tryon-result-buttons {
-    display: flex;
-    gap: 16px;
-    justify-content: center;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid rgba(51, 51, 51, 0.1);
-}
-
-.fashn-result-button {
-    padding: 12px 24px;
-    border: none;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.2s ease;
-    min-width: 140px;
-}
-
-.fashn-try-again-button {
-    background: #1A1A1A;
-    color: #FAFAFA;
-}
-
-.fashn-try-again-button:hover {
-    background: #333333;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(26, 26, 26, 0.3);
-}
-
-.fashn-download-button {
-    background: #FAFAFA;
-    color: #1A1A1A;
-    border: 1px solid #333333;
-}
-
-.fashn-download-button:hover {
-    background: #F0F0F0;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(26, 26, 26, 0.15);
-}
-
-.fashn-result-button:active {
-    transform: translateY(0);
-}
-
-.fashn-result-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.fashn-result-button:disabled:hover {
-    transform: none;
-    box-shadow: none;
+    
+    .fashn-carousel-container {
+        max-width: 100%;
+    }
+    
+    .fashn-carousel-images {
+        max-width: 300px;
+        height: 400px;
+    }
+    
+    .fashn-carousel-btn {
+        width: 35px;
+        height: 35px;
+        font-size: 20px;
+    }
+    
+    .fashn-carousel-prev {
+        left: -40px;
+    }
+    
+    .fashn-carousel-next {
+        right: -40px;
+    }
+    
+    .fashn-carousel-header h3 {
+        font-size: 20px;
+    }
+    
+    .fashn-carousel-counter {
+        font-size: 14px;
+        padding: 3px 10px;
+    }
 } 

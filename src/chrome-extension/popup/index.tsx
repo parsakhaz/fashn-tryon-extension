@@ -3,15 +3,15 @@ import "../global.css";
 
 export const Popup = () => {
   const [hasApiKey, setHasApiKey] = useState(false);
-  const [hasModelImage, setHasModelImage] = useState(false);
+  const [modelImagesCount, setModelImagesCount] = useState(0);
 
   useEffect(() => {
-    chrome.storage.local.get(["modelImageBase64", "fashnApiKey"], (result) => {
+    chrome.storage.local.get(["modelImagesBase64", "fashnApiKey"], (result) => {
       console.log("Popup: Storage result:", result);
-      console.log("Popup: Model image exists:", !!result.modelImageBase64);
+      console.log("Popup: Model images exist:", !!result.modelImagesBase64);
       console.log("Popup: API key exists:", !!result.fashnApiKey);
       setHasApiKey(!!result.fashnApiKey);
-      setHasModelImage(!!result.modelImageBase64);
+      setModelImagesCount(result.modelImagesBase64 ? result.modelImagesBase64.length : 0);
     });
   }, []);
 
@@ -20,14 +20,14 @@ export const Popup = () => {
   };
 
   const refreshStorageState = () => {
-    chrome.storage.local.get(["modelImageBase64", "fashnApiKey"], (result) => {
+    chrome.storage.local.get(["modelImagesBase64", "fashnApiKey"], (result) => {
       console.log("Popup: Manual refresh - Storage result:", result);
       setHasApiKey(!!result.fashnApiKey);
-      setHasModelImage(!!result.modelImageBase64);
+      setModelImagesCount(result.modelImagesBase64 ? result.modelImagesBase64.length : 0);
     });
   };
 
-  const setupComplete = hasApiKey && hasModelImage;
+  const setupComplete = hasApiKey && modelImagesCount > 0;
 
   return (
     <div className="w-full h-full min-h-screen p-6" style={{ backgroundColor: '#FAFAFA' }}>
@@ -45,8 +45,14 @@ export const Popup = () => {
               <span className="text-xl">✅</span>
               <span className="font-medium text-base">Ready to use!</span>
             </div>
-            <p className="text-sm mt-3" style={{ color: '#0D9488' }}>
+            <p className="text-sm mt-2" style={{ color: '#0D9488' }}>
+              {modelImagesCount} model image{modelImagesCount !== 1 ? 's' : ''} uploaded
+            </p>
+            <p className="text-sm mt-2" style={{ color: '#0D9488' }}>
               Hover over clothing images on any website to see the 👗 try-on button
+            </p>
+            <p className="text-xs mt-1" style={{ color: '#0D9488' }}>
+              Multiple images will create up to {Math.min(modelImagesCount, 4)} try-on results
             </p>
           </div>
           
@@ -70,7 +76,7 @@ export const Popup = () => {
               <span className="font-medium text-base">Setup Required</span>
             </div>
             <div className="text-sm mt-3 space-y-1" style={{ color: '#A16207' }}>
-              {!hasModelImage && <div>• Upload your model image</div>}
+              {modelImagesCount === 0 && <div>• Upload at least one model image</div>}
               {!hasApiKey && <div>• Add your FASHN AI API key</div>}
             </div>
           </div>

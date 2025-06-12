@@ -25,6 +25,14 @@ async function imageToDataURL(url: string): Promise<string> {
   }
 }
 
+interface PredictionJob {
+  id: string;
+  modelImageIndex: number;
+  completed: boolean;
+  result?: string;
+  error?: string;
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "openOptions") {
     chrome.runtime.openOptionsPage();
@@ -37,14 +45,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const { garmentImageSrc } = request;
         console.log("Background: Received initiateTryOn for", garmentImageSrc);
 
-        const { modelImageBase64, fashnApiKey } = await chrome.storage.local.get([
-          "modelImageBase64",
+        const { modelImagesBase64, fashnApiKey } = await chrome.storage.local.get([
+          "modelImagesBase64",
           "fashnApiKey",
         ]);
 
-        if (!modelImageBase64) {
-          console.log("Background: Model image not set");
-          sendResponse({ error: "Model image not set. Please set it in the extension options." });
+        if (!modelImagesBase64 || !Array.isArray(modelImagesBase64) || modelImagesBase64.length === 0) {
+          console.log("Background: Model images not set");
+          sendResponse({ error: "Model images not set. Please set them in the extension options." });
           return;
         }
         if (!fashnApiKey) {
@@ -65,116 +73,173 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return;
         }
 
-        const apiPayload = {
-          model_image: modelImageBase64,
-          garment_image: garmentImageBase64,
-          garment_photo_type: "auto",
-          category: "auto",
-          mode: "balanced",
-          num_samples: 1,
-        };
+        // Limit to 4 images max
+        const imagesToProcess = modelImagesBase64.slice(0, 4);
+        console.log(`Background: Processing ${imagesToProcess.length} model images`);
 
         const headers = {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${fashnApiKey}`,
         };
 
-        console.log("Background: Sending request to FASHN API /run");
-        const runResponse = await fetch(`${FASHN_ENDPOINT_URL}/run`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(apiPayload),
+        // Create prediction jobs for each model image
+        const predictionJobs: PredictionJob[] = [];
+
+        // Send all API requests in parallel
+        const runPromises = imagesToProcess.map(async (modelImage, index) => {
+          const apiPayload = {
+            model_image: modelImage,
+            garment_image: garmentImageBase64,
+            garment_photo_type: "auto",
+            category: "auto",
+            mode: "balanced",
+            num_samples: 1,
+          };
+
+          console.log(`Background: Sending request ${index + 1}/${imagesToProcess.length} to FASHN API /run`);
+          const runResponse = await fetch(`${FASHN_ENDPOINT_URL}/run`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(apiPayload),
+          });
+
+          if (!runResponse.ok) {
+            let errorDetail = "Unknown error during API run.";
+            try {
+              const errorData = await runResponse.json();
+              errorDetail = errorData.detail || runResponse.statusText;
+            } catch {
+              /* ignore if parsing fails */
+            }
+            
+            console.error(`Background: FASHN API /run error for image ${index + 1}:`, runResponse.status, errorDetail);
+            throw new Error(`API run failed for image ${index + 1}: ${errorDetail}`);
+          }
+
+          const runData = await runResponse.json();
+          const predId = runData.id;
+          console.log(`Background: Prediction ID for image ${index + 1}: ${predId}`);
+
+          if (!predId) {
+            throw new Error(`Failed to get prediction ID for image ${index + 1} from FASHN API.`);
+          }
+
+          return {
+            id: predId,
+            modelImageIndex: index,
+            completed: false
+          } as PredictionJob;
         });
 
-        if (!runResponse.ok) {
-          let errorDetail = "Unknown error during API run.";
-          try {
-            const errorData = await runResponse.json();
-            errorDetail = errorData.detail || runResponse.statusText;
-          } catch {
-            /* ignore if parsing fails */
-          }
-          
-          console.error("Background: FASHN API /run error:", runResponse.status, errorDetail);
-          if (runResponse.status === 401 || runResponse.status === 403) {
+        // Wait for all initial API calls to complete
+        try {
+          const jobs = await Promise.all(runPromises);
+          predictionJobs.push(...jobs);
+          console.log(`Background: All ${jobs.length} prediction jobs initiated`);
+        } catch (error) {
+          console.error("Background: Error initiating prediction jobs:", error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (errorMessage.includes("401") || errorMessage.includes("403") || errorMessage.includes("unauthorized")) {
             sendResponse({ error: "Invalid or unauthorized API key. Please check your FASHN API key in options." });
           } else {
-            sendResponse({ error: `API run failed: ${errorDetail}` });
+            sendResponse({ error: errorMessage });
           }
-          return;
-        }
-
-        const runData = await runResponse.json();
-        const predId = runData.id;
-        console.log(`Background: Prediction ID: ${predId}`);
-
-        if (!predId) {
-          sendResponse({ error: "Failed to get prediction ID from FASHN API." });
           return;
         }
         
-        sendResponse({ status: "processing", predictionId: predId }); // Send initial status back
+        sendResponse({ 
+          status: "processing", 
+          predictionIds: predictionJobs.map(job => job.id),
+          totalJobs: predictionJobs.length
+        }); // Send initial status back
 
-        // Polling logic (no longer sending response from here directly to content script, content script will poll)
-        // This part can be removed if content script handles polling.
-        // For now, background will poll and content script just waits for final result.
-
-        let statusData;
+        // Start polling all jobs
         const maxPollingTime = 180 * 1000; // 3 minutes
         const pollingInterval = 5 * 1000; // 5 seconds
         const startTime = Date.now();
 
         while (Date.now() - startTime < maxPollingTime) {
           await delay(pollingInterval);
-          console.log(`Background: Polling status for ID: ${predId}`);
-          const statusResponse = await fetch(`${FASHN_ENDPOINT_URL}/status/${predId}`, {
-            method: "GET",
-            headers,
+          
+          // Poll all incomplete jobs
+          const incompleteJobs = predictionJobs.filter(job => !job.completed);
+          if (incompleteJobs.length === 0) break; // All jobs completed
+
+          console.log(`Background: Polling ${incompleteJobs.length} incomplete jobs`);
+
+          const statusPromises = incompleteJobs.map(async (job) => {
+            try {
+              const statusResponse = await fetch(`${FASHN_ENDPOINT_URL}/status/${job.id}`, {
+                method: "GET",
+                headers,
+              });
+
+              if (!statusResponse.ok) {
+                console.error(`Background: FASHN API /status poll error for job ${job.id}:`, statusResponse.status);
+                return null; // Don't fail the entire batch for one failed poll
+              }
+
+              const statusData = await statusResponse.json();
+              console.log(`Background: Job ${job.id} status: ${statusData.status}`);
+
+              if (statusData.status === "completed") {
+                job.completed = true;
+                job.result = statusData.output?.[0]; // Take first result
+                console.log(`Background: Job ${job.id} completed successfully`);
+              } else if (statusData.status === "failed" || statusData.status === "error") {
+                job.completed = true;
+                job.error = statusData.error?.message || 'Unknown API error';
+                console.error(`Background: Job ${job.id} failed:`, job.error);
+              }
+
+              return job;
+            } catch (error) {
+              console.error(`Background: Error polling job ${job.id}:`, error);
+              return null;
+            }
           });
 
-          if (!statusResponse.ok) {
-            // Don't send error for failed poll, just log and retry
-            console.error("Background: FASHN API /status poll error:", statusResponse.status);
-            continue;
-          }
-
-          statusData = await statusResponse.json();
-          console.log(`Background: Prediction status: ${statusData.status}`);
-
-          if (statusData.status === "completed") {
-            console.log("Background: Prediction completed.");
-            // Send final result to the specific tab that made the request
-            if (sender.tab && sender.tab.id) {
-                 chrome.tabs.sendMessage(sender.tab.id, {
-                    action: "tryOnResult",
-                    result: statusData.output, // output is an array of URLs
-                    originalGarmentSrc: garmentImageSrc // To identify which modal to update
-                });
-            }
-            return; // Exit async IIFE
-          } else if (statusData.status === "failed" || statusData.status === "error") {
-            console.error(`Background: Prediction failed for ID ${predId}:`, statusData.error);
-            if (sender.tab && sender.tab.id) {
-                chrome.tabs.sendMessage(sender.tab.id, {
-                    action: "tryOnResult",
-                    error: `Prediction failed: ${statusData.error?.message || 'Unknown API error'}`,
-                    originalGarmentSrc: garmentImageSrc
-                });
-            }
-            return; // Exit async IIFE
-          }
-           // If still processing, content script is already showing "Processing..."
-           // No need to send intermediate status updates unless explicitly designed for.
+          await Promise.all(statusPromises);
         }
         
-        // If loop finishes, it's a timeout
-        console.log("Background: Polling timeout for prediction ID:", predId);
+        // Check if we finished due to timeout
+        const incompletedJobs = predictionJobs.filter(job => !job.completed);
+        if (incompletedJobs.length > 0) {
+          console.log(`Background: Polling timeout. ${incompletedJobs.length} jobs still incomplete`);
+          incompletedJobs.forEach(job => {
+            job.completed = true;
+            job.error = "Try-on request timed out after 3 minutes.";
+          });
+        }
+
+        // Prepare results - filter out failed jobs and get successful results
+        const successfulResults = predictionJobs
+          .filter(job => job.result)
+          .map(job => job.result);
+
+        const failedJobs = predictionJobs.filter(job => job.error);
+
+        console.log(`Background: Completed ${predictionJobs.length} jobs. ${successfulResults.length} successful, ${failedJobs.length} failed`);
+
+        // Send final results to the specific tab
         if (sender.tab && sender.tab.id) {
+          if (successfulResults.length > 0) {
             chrome.tabs.sendMessage(sender.tab.id, {
-                action: "tryOnResult",
-                error: "Try-on request timed out after 3 minutes.",
-                originalGarmentSrc: garmentImageSrc
+              action: "tryOnResult",
+              result: successfulResults, // Array of result URLs
+              originalGarmentSrc: garmentImageSrc,
+              totalJobs: predictionJobs.length,
+              successfulJobs: successfulResults.length
             });
+          } else {
+            // All jobs failed
+            const firstError = failedJobs[0]?.error || "All try-on requests failed";
+            chrome.tabs.sendMessage(sender.tab.id, {
+              action: "tryOnResult",
+              error: `All try-on requests failed. First error: ${firstError}`,
+              originalGarmentSrc: garmentImageSrc
+            });
+          }
         }
 
       } catch (error: unknown) {
