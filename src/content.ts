@@ -6,6 +6,7 @@ interface TryOnModalElement extends HTMLDivElement {
     contentDiv: HTMLDivElement;
     closeButton: HTMLButtonElement;
     lastGarmentImageUrl?: string;
+    currentGarmentImageUrl?: string;
     show: (message: string, isError?: boolean, imageUrls?: string[] | string | null) => void;
     showLoading: (garmentImageUrl: string, modelImageUrls: string[], predictionIds?: string[]) => void;
     hide: () => void;
@@ -40,82 +41,77 @@ function getTryOnModal(): TryOnModalElement {
 
     modal.show = (message, isError = false, imageUrls = null) => {
         if (imageUrls) {
-            // Handle multiple images or single image
+            // Handle multiple images or single image - always use carousel for consistency
             const images = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
             
-            if (images.length === 1) {
-                // Single image display (original behavior)
-                // Remove carousel class if it exists
-                modal.classList.remove('fashn-modal-with-carousel');
-                
-                modal.contentDiv.innerHTML = `
-                    <div class="fashn-tryon-result-container">
-                        <img src="${images[0]}" class="fashn-tryon-modal-image" alt="Try-On Result"/>
-                        <div class="fashn-tryon-result-buttons">
-                            <button id="fashn-try-again-btn" class="fashn-result-button fashn-try-again-button">
-                                🔄 Try Again
-                            </button>
-                            <button id="fashn-download-btn" class="fashn-result-button fashn-download-button">
-                                💾 Download
-                            </button>
-                        </div>
-                    </div>
-                `;
-                
-                // Add download functionality for single image
-                const downloadBtn = modal.contentDiv.querySelector('#fashn-download-btn') as HTMLButtonElement;
-                if (downloadBtn) {
-                    downloadBtn.onclick = () => downloadImage(images[0], downloadBtn);
-                }
-            } else {
-                // Multiple images display with carousel
-                // Add class for targeted carousel styling
-                modal.classList.add('fashn-modal-with-carousel');
-                
-                modal.contentDiv.innerHTML = `
-                    <div class="fashn-tryon-result-container">
-                        <div class="fashn-carousel-container">
-                            <div class="fashn-carousel-header">
-                                <h3>Your Try-On Results (${images.length})</h3>
-                                <div class="fashn-carousel-counter">
-                                    <span id="current-image">1</span> / ${images.length}
-                                </div>
+            // Always display with carousel for consistency and to include garment reference
+            // Add class for targeted carousel styling
+            modal.classList.add('fashn-modal-with-carousel');
+            
+            // Add garment image as reference if available
+            const allImages = [...images];
+            let hasReference = false;
+            if (modal.currentGarmentImageUrl) {
+                allImages.push(modal.currentGarmentImageUrl);
+                hasReference = true;
+            }
+            
+            modal.contentDiv.innerHTML = `
+                <div class="fashn-tryon-result-container">
+                    <div class="fashn-carousel-container">
+                        <div class="fashn-carousel-header">
+                            <h3>Your Try-On Results (${images.length}${hasReference ? ' + Reference' : ''})</h3>
+                            <div class="fashn-carousel-counter">
+                                <span id="current-image">1</span> / ${allImages.length}
                             </div>
-                            <div class="fashn-carousel-wrapper">
-                                <button class="fashn-carousel-btn fashn-carousel-prev" id="carousel-prev">‹</button>
-                                <div class="fashn-carousel-images">
-                                    ${images.map((url, index) => `
+                        </div>
+                        <div class="fashn-carousel-wrapper">
+                            <button class="fashn-carousel-btn fashn-carousel-prev" id="carousel-prev">‹</button>
+                            <div class="fashn-carousel-images">
+                                ${allImages.map((url, index) => {
+                                    const isReference = hasReference && index === allImages.length - 1;
+                                    return `
                                         <img src="${url}" 
                                              class="fashn-carousel-image ${index === 0 ? 'active' : ''}" 
-                                             alt="Try-On Result ${index + 1}"
-                                             data-index="${index}"/>
-                                    `).join('')}
-                                </div>
-                                <button class="fashn-carousel-btn fashn-carousel-next" id="carousel-next">›</button>
+                                             alt="${isReference ? 'Original Garment (Reference)' : `Try-On Result ${index + 1}`}"
+                                             data-index="${index}"
+                                             ${isReference ? 'data-is-reference="true"' : ''}/>
+                                    `;
+                                }).join('')}
                             </div>
-                            <div class="fashn-carousel-dots">
-                                ${images.map((_, index) => `
-                                    <button class="fashn-carousel-dot ${index === 0 ? 'active' : ''}" 
-                                            data-index="${index}"></button>
-                                `).join('')}
-                            </div>
+                            <button class="fashn-carousel-btn fashn-carousel-next" id="carousel-next">›</button>
                         </div>
-                        <div class="fashn-tryon-result-buttons">
-                            <button id="fashn-try-again-btn" class="fashn-result-button fashn-try-again-button">
-                                🔄 Try Again
-                            </button>
-                            <button id="fashn-download-current-btn" class="fashn-result-button fashn-download-button">
-                                💾 Download Current
-                            </button>
-                            <button id="fashn-download-all-btn" class="fashn-result-button fashn-download-all-button">
-                                📥 Download All
-                            </button>
+                        <div class="fashn-carousel-dots">
+                            ${allImages.map((_, index) => {
+                                const isReference = hasReference && index === allImages.length - 1;
+                                return `
+                                    <button class="fashn-carousel-dot ${index === 0 ? 'active' : ''}" 
+                                            data-index="${index}"
+                                            ${isReference ? 'data-is-reference="true" title="Original Garment"' : ''}></button>
+                                `;
+                            }).join('')}
                         </div>
                     </div>
-                `;
-                
-                // Setup carousel functionality
-                setupCarousel(images);
+                    <div class="fashn-tryon-result-buttons">
+                        <button id="fashn-try-again-btn" class="fashn-result-button fashn-try-again-button">
+                            🔄 Try Again
+                        </button>
+                        <button id="fashn-download-current-btn" class="fashn-result-button fashn-download-button">
+                            💾 Download Current
+                        </button>
+                        <button id="fashn-download-all-btn" class="fashn-result-button fashn-download-all-button">
+                            📥 Download All
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Setup carousel functionality with all images including reference
+            setupCarousel(allImages, images.length);
+            
+            // Update lastGarmentImageUrl for "Try Again" functionality
+            if (modal.currentGarmentImageUrl) {
+                modal.lastGarmentImageUrl = modal.currentGarmentImageUrl;
             }
             
             // Add try again functionality
@@ -142,6 +138,8 @@ function getTryOnModal(): TryOnModalElement {
     modal.showLoading = (garmentImageUrl, modelImageUrls, predictionIds) => {
         // Remove carousel class for loading screen
         modal.classList.remove('fashn-modal-with-carousel');
+        // Store garment image URL for later use in carousel
+        modal.currentGarmentImageUrl = garmentImageUrl;
         
         const loadingHTML = `
             <div class="fashn-loading-container">
@@ -205,8 +203,9 @@ function getTryOnModal(): TryOnModalElement {
 }
 
 // Helper function to setup carousel functionality
-function setupCarousel(images: string[]) {
+function setupCarousel(images: string[], resultImagesCount?: number) {
     let currentIndex = 0;
+    const totalResultImages = resultImagesCount || images.length;
     
     const updateCarousel = (newIndex: number) => {
         // Hide all images
@@ -268,8 +267,13 @@ function setupCarousel(images: string[]) {
             downloadAllBtn.innerHTML = '⏳ Downloading...';
             
             try {
+                // Download all images including reference garment
                 for (let i = 0; i < images.length; i++) {
-                    await downloadImage(images[i], null, `fashn-tryon-result-${i + 1}-${Date.now()}.png`);
+                    const isReference = i >= totalResultImages;
+                    const filename = isReference 
+                        ? `fashn-original-garment-${Date.now()}.png`
+                        : `fashn-tryon-result-${i + 1}-${Date.now()}.png`;
+                    await downloadImage(images[i], null, filename);
                     await new Promise(resolve => setTimeout(resolve, 500)); // Small delay between downloads
                 }
                 downloadAllBtn.innerHTML = '✅ Downloaded All';

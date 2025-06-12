@@ -16,6 +16,7 @@ See the extension in action:
 
 ### 🎯 Core Functionality
 - **Virtual Try-On**: Hover over clothing images on any website to see the 👗 try-on button
+- **Multi-Model Support**: Upload up to 4 model images for varied try-on results with carousel navigation
 - **Real-time Processing**: Advanced AI processing with progress tracking and prediction IDs
 - **Universal Compatibility**: Works on any e-commerce or fashion website
 - **High-Quality Results**: Professional-grade virtual try-on powered by FASHN AI
@@ -24,10 +25,11 @@ See the extension in action:
 - **Modern Design**: Clean, sharp rectangular design with Metrophobic typography
 - **Circular Try-On Button**: Easy-to-recognize 👗 button that appears on hover
 - **Loading Animation**: Beautiful loading screen with animated arrows and progress bar
-- **Result Actions**: Try Again 🔄 and Download 💾 buttons for each result
+- **Carousel Results**: Navigate through multiple try-on results with original garment reference
+- **Result Actions**: Try Again 🔄, Download Current 💾, and Download All 📥 buttons
 
 ### 🔧 Configuration
-- **Model Image Upload**: Upload your own model image (up to 5MB, PNG/JPEG/WebP)
+- **Multi-Model Upload**: Upload up to 4 model images (up to 5MB each, PNG/JPEG/WebP)
 - **API Key Management**: Secure storage of your FASHN AI API key
 - **Settings Panel**: Easy-to-use options page for configuration
 - **Storage Persistence**: Your settings are saved across browser sessions
@@ -73,7 +75,7 @@ See the extension in action:
 ### First-Time Setup
 1. Click the 👗 extension icon in your Chrome toolbar
 2. Click "Complete Setup" to open the options page
-3. Upload a clear, front-facing model image (max 5MB)
+3. Upload up to 4 clear, front-facing model images (max 5MB each)
 4. Enter your FASHN AI API key
 5. Save your settings
 
@@ -156,7 +158,7 @@ The extension supports various FASHN AI parameters:
 
 ### Storage
 Extension data is stored locally using Chrome's storage API:
-- `modelImageBase64`: Your uploaded model image
+- `modelImagesBase64`: Your uploaded model images (up to 4)
 - `fashnApiKey`: Your FASHN AI API key
 
 ## 🐛 Troubleshooting
