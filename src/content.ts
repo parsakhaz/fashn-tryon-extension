@@ -45,6 +45,9 @@ function getTryOnModal(): TryOnModalElement {
             
             if (images.length === 1) {
                 // Single image display (original behavior)
+                // Remove carousel class if it exists
+                modal.classList.remove('fashn-modal-with-carousel');
+                
                 modal.contentDiv.innerHTML = `
                     <div class="fashn-tryon-result-container">
                         <img src="${images[0]}" class="fashn-tryon-modal-image" alt="Try-On Result"/>
@@ -66,6 +69,9 @@ function getTryOnModal(): TryOnModalElement {
                 }
             } else {
                 // Multiple images display with carousel
+                // Add class for targeted carousel styling
+                modal.classList.add('fashn-modal-with-carousel');
+                
                 modal.contentDiv.innerHTML = `
                     <div class="fashn-tryon-result-container">
                         <div class="fashn-carousel-container">
@@ -126,12 +132,17 @@ function getTryOnModal(): TryOnModalElement {
                 };
             }
         } else {
+            // Remove carousel class for error/message display
+            modal.classList.remove('fashn-modal-with-carousel');
             modal.contentDiv.innerHTML = `<p style="color: ${isError ? '#e53e3e' : '#2d3748'}; font-size: 1.1rem; padding: 20px;">${message}</p>`;
         }
         modal.style.display = 'flex';
     };
 
     modal.showLoading = (garmentImageUrl, modelImageUrls, predictionIds) => {
+        // Remove carousel class for loading screen
+        modal.classList.remove('fashn-modal-with-carousel');
+        
         const loadingHTML = `
             <div class="fashn-loading-container">
                 <h3 class="fashn-loading-title">Creating Your Virtual Try-On Results</h3>
@@ -178,6 +189,8 @@ function getTryOnModal(): TryOnModalElement {
     };
 
     modal.hide = () => {
+        // Remove carousel class when hiding
+        modal.classList.remove('fashn-modal-with-carousel');
         modal.style.display = 'none';
         modal.contentDiv.innerHTML = '';
     };
@@ -265,6 +278,7 @@ function setupCarousel(images: string[]) {
                     downloadAllBtn.disabled = false;
                 }, 2000);
             } catch (error) {
+                console.error('Download all failed:', error);
                 downloadAllBtn.innerHTML = '❌ Failed';
                 setTimeout(() => {
                     downloadAllBtn.innerHTML = '📥 Download All';

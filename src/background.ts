@@ -153,19 +153,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           totalJobs: predictionJobs.length
         }); // Send initial status back
 
-        // Start polling all jobs
+        // Start polling all jobs with reasonable progressive intervals
         const maxPollingTime = 180 * 1000; // 3 minutes
-        const pollingInterval = 5 * 1000; // 5 seconds
         const startTime = Date.now();
+        let pollCount = 0;
 
         while (Date.now() - startTime < maxPollingTime) {
+          // Progressive polling: start reasonably fast, then slow down
+          let pollingInterval;
+          if (pollCount < 6) {
+            pollingInterval = 2000; // 2 seconds for first 6 polls (first 12 seconds)
+          } else if (pollCount < 12) {
+            pollingInterval = 3000; // 3 seconds for next 6 polls (next 18 seconds)
+          } else {
+            pollingInterval = 5000; // 5 seconds after that (back to original for long-running)
+          }
+          
           await delay(pollingInterval);
+          pollCount++;
           
           // Poll all incomplete jobs
           const incompleteJobs = predictionJobs.filter(job => !job.completed);
           if (incompleteJobs.length === 0) break; // All jobs completed
 
-          console.log(`Background: Polling ${incompleteJobs.length} incomplete jobs`);
+          console.log(`Background: Polling ${incompleteJobs.length} incomplete jobs (poll #${pollCount}, interval: ${pollingInterval}ms)`);
 
           const statusPromises = incompleteJobs.map(async (job) => {
             try {
