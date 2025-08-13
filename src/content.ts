@@ -619,15 +619,6 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
         e.stopPropagation();
         e.preventDefault();
 
-        // Get model images from storage first
-        let modelImageUrls: string[] = [];
-        try {
-            const result = await chrome.storage.local.get(['modelImagesBase64']);
-            modelImageUrls = result.modelImagesBase64 || [];
-        } catch (error) {
-            console.error('Failed to get model images from storage:', error);
-        }
-
         const modal = getTryOnModal();
         
         if (!imageUrl) {
@@ -635,58 +626,8 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
             return;
         }
 
-        if (modelImageUrls.length === 0) {
-            const modal = getTryOnModal();
-            modal.contentDiv.innerHTML = `
-                <div style="padding: 20px; text-align: center;">
-                    <h3 style="color: #1A1A1A; margin-bottom: 16px;">Setup Required</h3>
-                    <p style="color: #333333; margin-bottom: 20px;">You need to upload a model image first to use model swap.</p>
-                    <button id="fashn-open-options" style="
-                        background: #1A1A1A;
-                        color: #FAFAFA;
-                        border: none;
-                        padding: 12px 24px;
-                        border-radius: 8px;
-                        font-size: 16px;
-                        font-weight: bold;
-                        cursor: pointer;
-                        margin-right: 10px;
-                        transition: opacity 0.2s;
-                    " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Open Settings</button>
-                    <button id="fashn-cancel-setup" style="
-                        background: #FAFAFA;
-                        color: #333333;
-                        border: 1px solid #333333;
-                        padding: 12px 24px;
-                        border-radius: 8px;
-                        font-size: 16px;
-                        cursor: pointer;
-                        transition: opacity 0.2s;
-                    " onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Cancel</button>
-                </div>
-            `;
-            modal.style.display = 'flex';
-            
-            // Add event listeners
-            const openOptionsBtn = modal.contentDiv.querySelector('#fashn-open-options') as HTMLButtonElement;
-            const cancelBtn = modal.contentDiv.querySelector('#fashn-cancel-setup') as HTMLButtonElement;
-            
-            if (openOptionsBtn) {
-                openOptionsBtn.onclick = () => {
-                    chrome.runtime.sendMessage({ action: "openOptions" });
-                    modal.hide();
-                };
-            }
-            
-            if (cancelBtn) {
-                cancelBtn.onclick = () => modal.hide();
-            }
-            
-            return;
-        }
-
-        // Show the loading screen for model swap
-        modal.showLoading(imageUrl, modelImageUrls);
+        // Show the loading screen for model swap (no uploaded model images needed)
+        modal.showLoading(imageUrl, [imageUrl]);
 
         // Store the fashion model URL for potential retry functionality
         modal.lastGarmentImageUrl = imageUrl;
@@ -702,7 +643,7 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
                  modal.show(`Error: ${initialResponse.error}`, true);
             } else if (initialResponse && initialResponse.status === "processing") {
                 // Update loading screen with prediction IDs
-                modal.showLoading(imageUrl, modelImageUrls, initialResponse.predictionIds);
+                modal.showLoading(imageUrl, [imageUrl], initialResponse.predictionIds);
             }
             // Else: background script will send a message with the final result or error
         } catch (error: unknown) {

@@ -27,7 +27,7 @@ export const Popup = () => {
     });
   };
 
-  const setupComplete = hasApiKey && modelImagesCount > 0;
+  const setupComplete = hasApiKey; // Model swap no longer requires uploaded model images; try-on still benefits but not required for popup readiness
 
   return (
     <div className="w-full h-full min-h-screen p-6" style={{ backgroundColor: '#FAFAFA' }}>
@@ -56,7 +56,7 @@ export const Popup = () => {
               • Model swap: Transform model identity while keeping clothes
             </p>
             <p className="text-xs mt-1" style={{ color: '#0D9488' }}>
-              Multiple images will create up to {Math.min(modelImagesCount, 4)} results
+              Multiple images will create up to {Math.min(modelImagesCount, 4)} results for try-on
             </p>
           </div>
           
@@ -80,11 +80,8 @@ export const Popup = () => {
               <span className="font-medium text-base">Setup Required</span>
             </div>
             <div className="text-sm mt-3 space-y-1" style={{ color: '#A16207' }}>
-              {modelImagesCount === 0 && <div>• Upload at least one model image</div>}
               {!hasApiKey && <div>• Add your FASHN AI API key</div>}
-              <div className="text-xs mt-2" style={{ color: '#92400E' }}>
-                Both try-on and model swap features require the same setup
-              </div>
+              {modelImagesCount === 0 && <div>• Optional: Upload model images for try-on (not needed for model swap)</div>}
             </div>
           </div>
           
@@ -96,7 +93,7 @@ export const Popup = () => {
               color: '#FAFAFA' 
             }}
           >
-            Complete Setup
+            Open Settings
           </button>
         </div>
       )}

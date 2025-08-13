@@ -276,26 +276,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log("Background: Received initiateModelSwap for", fashionModelImageSrc);
 
         const { 
-          modelImagesBase64, 
           fashnApiKey, 
           modelSwapPrompt, 
           modelSwapBackgroundChange, 
           modelSwapSeed, 
           modelSwapLoraUrl 
         } = await chrome.storage.local.get([
-          "modelImagesBase64",
           "fashnApiKey",
           "modelSwapPrompt",
           "modelSwapBackgroundChange", 
           "modelSwapSeed",
           "modelSwapLoraUrl"
         ]);
-
-        if (!modelImagesBase64 || !Array.isArray(modelImagesBase64) || modelImagesBase64.length === 0) {
-          console.log("Background: Model images not set");
-          sendResponse({ error: "Model images not set. Please set them in the extension options." });
-          return;
-        }
         if (!fashnApiKey) {
           console.log("Background: API Key not set");
           sendResponse({ error: "FASHN AI API Key not set. Please set it in the extension options." });
@@ -314,20 +306,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return;
         }
 
-        // Limit to 4 images max
-        const imagesToProcess = modelImagesBase64.slice(0, 4);
-        console.log(`Background: Processing ${imagesToProcess.length} model images for model swap`);
+        // Single request for model swap (no dependency on uploaded model images)
+        console.log("Background: Processing single model swap request");
 
         const headers = {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${fashnApiKey}`,
         };
 
-        // Create prediction jobs for each target model image
+        // Create prediction jobs (single job for model swap)
         const predictionJobs: PredictionJob[] = [];
 
-        // Send all API requests in parallel
-        const runPromises = imagesToProcess.map(async (_, index) => {
+        // Build and send the single API request
+        try {
           const apiPayload: {
             model_name: string;
             inputs: {
@@ -347,12 +338,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
           };
 
-          // Add optional LoRA URL if provided
           if (modelSwapLoraUrl && modelSwapLoraUrl.trim()) {
             apiPayload.inputs.lora_url = modelSwapLoraUrl.trim();
           }
 
-          console.log(`Background: Sending model swap request ${index + 1}/${imagesToProcess.length} to FASHN API /run`);
+          console.log("Background: Sending single model swap request to FASHN API /run");
           const runResponse = await fetch(`${FASHN_ENDPOINT_URL}/run`, {
             method: "POST",
             headers,
@@ -367,33 +357,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             } catch {
               /* ignore if parsing fails */
             }
-            
-            console.error(`Background: FASHN API /run error for model swap ${index + 1}:`, runResponse.status, errorDetail);
-            throw new Error(`API run failed for model swap ${index + 1}: ${errorDetail}`);
+            console.error("Background: FASHN API /run error for model swap:", runResponse.status, errorDetail);
+            throw new Error(`API run failed for model swap: ${errorDetail}`);
           }
 
           const runData = await runResponse.json();
           const predId = runData.id;
-          console.log(`Background: Model swap prediction ID for request ${index + 1}: ${predId}`);
+          console.log(`Background: Model swap prediction ID: ${predId}`);
 
           if (!predId) {
-            throw new Error(`Failed to get prediction ID for model swap ${index + 1} from FASHN API.`);
+            throw new Error("Failed to get prediction ID for model swap from FASHN API.");
           }
 
-          return {
+          predictionJobs.push({
             id: predId,
-            modelImageIndex: index,
+            modelImageIndex: 0,
             completed: false
-          } as PredictionJob;
-        });
-
-        // Wait for all initial API calls to complete
-        try {
-          const jobs = await Promise.all(runPromises);
-          predictionJobs.push(...jobs);
-          console.log(`Background: All ${jobs.length} model swap prediction jobs initiated`);
+          });
         } catch (error) {
-          console.error("Background: Error initiating model swap prediction jobs:", error);
+          console.error("Background: Error initiating model swap prediction job:", error);
           const errorMessage = error instanceof Error ? error.message : String(error);
           if (errorMessage.includes("401") || errorMessage.includes("403") || errorMessage.includes("unauthorized")) {
             sendResponse({ error: "Invalid or unauthorized API key. Please check your FASHN API key in options." });
@@ -432,7 +414,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const incompleteJobs = predictionJobs.filter(job => !job.completed);
           if (incompleteJobs.length === 0) break; // All jobs completed
 
-          console.log(`Background: Polling ${incompleteJobs.length} incomplete model swap jobs (poll #${pollCount}, interval: ${pollingInterval}ms)`);
+          console.log(`Background: Polling ${incompleteJobs.length} incomplete model swap job(s) (poll #${pollCount}, interval: ${pollingInterval}ms)`);
 
           const statusPromises = incompleteJobs.map(async (job) => {
             try {
