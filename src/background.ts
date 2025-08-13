@@ -506,6 +506,191 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     })();
     return true; // Crucial for sendResponse to be usable asynchronously
   }
+
+  if (request.action === "initiateModelVariation") {
+    (async () => {
+      try {
+        const { sourceImageSrc, targetIndex, variationStrength: variationStrengthOverride } = request as { sourceImageSrc: string; targetIndex?: number; variationStrength?: "subtle" | "strong" };
+        console.log("Background: Received initiateModelVariation for", sourceImageSrc, "targetIndex:", targetIndex);
+
+        const { 
+          fashnApiKey, 
+          variationStrength: variationStrengthStored, 
+          variationSeed, 
+          variationLoraUrl,
+          variationOutputFormat,
+          variationReturnBase64
+        } = await chrome.storage.local.get([
+          "fashnApiKey",
+          "variationStrength",
+          "variationSeed",
+          "variationLoraUrl",
+          "variationOutputFormat",
+          "variationReturnBase64"
+        ]);
+
+        if (!fashnApiKey) {
+          console.log("Background: API Key not set");
+          sendResponse({ error: "FASHN AI API Key not set. Please set it in the extension options." });
+          return;
+        }
+
+        let sourceImageBase64: string;
+        try {
+          console.log("Background: Converting variation source image to base64...");
+          sourceImageBase64 = await imageToDataURL(sourceImageSrc);
+          console.log("Background: Variation source image converted.");
+        } catch (e: unknown) {
+          console.error("Background: Error fetching/converting variation source image:", e);
+          const errorMessage = e instanceof Error ? e.message : String(e);
+          sendResponse({ error: `Failed to load source image: ${errorMessage}` });
+          return;
+        }
+
+        const headers = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${fashnApiKey}`,
+        };
+
+        // Build payload based on docs for model-variation
+        const apiPayload: {
+          model_name: string;
+          inputs: {
+            model_image: string;
+            variation_strength?: "subtle" | "strong";
+            seed?: number;
+            lora_url?: string;
+            output_format?: "png" | "jpeg";
+            return_base64?: boolean;
+          };
+        } = {
+          model_name: "model-variation",
+          inputs: {
+            model_image: sourceImageBase64,
+          }
+        };
+
+        const variationStrengthFinal = (variationStrengthOverride === "subtle" || variationStrengthOverride === "strong")
+          ? variationStrengthOverride
+          : (variationStrengthStored === "subtle" || variationStrengthStored === "strong")
+            ? variationStrengthStored
+            : undefined;
+        if (variationStrengthFinal) {
+          apiPayload.inputs.variation_strength = variationStrengthFinal;
+        }
+        if (typeof variationSeed === "number") {
+          apiPayload.inputs.seed = variationSeed;
+        }
+        if (variationLoraUrl && typeof variationLoraUrl === "string" && variationLoraUrl.trim()) {
+          apiPayload.inputs.lora_url = variationLoraUrl.trim();
+        }
+        if (variationOutputFormat === "png" || variationOutputFormat === "jpeg") {
+          apiPayload.inputs.output_format = variationOutputFormat;
+        }
+        if (typeof variationReturnBase64 === "boolean") {
+          apiPayload.inputs.return_base64 = variationReturnBase64;
+        }
+
+        // Submit job
+        console.log("Background: Sending model variation request to FASHN API /run");
+        const runResponse = await fetch(`${FASHN_ENDPOINT_URL}/run`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(apiPayload),
+        });
+
+        if (!runResponse.ok) {
+          let errorDetail = "Unknown error during API run.";
+          try {
+            const errorData = await runResponse.json();
+            errorDetail = errorData.detail || runResponse.statusText;
+          } catch {
+            /* ignore */
+          }
+          console.error("Background: FASHN API /run error for model variation:", runResponse.status, errorDetail);
+          throw new Error(`API run failed for model variation: ${errorDetail}`);
+        }
+
+        const runData = await runResponse.json();
+        const predictionId = runData.id;
+        if (!predictionId) {
+          throw new Error("Failed to get prediction ID for model variation from FASHN API.");
+        }
+
+        // Acknowledge processing start
+        sendResponse({ status: "processing", predictionIds: [predictionId] });
+
+        // Polling
+        const maxPollingTime = 180 * 1000; // 3 minutes
+        const startTime = Date.now();
+        let pollCount = 0;
+        let finalResultUrl: string | null = null;
+        let finalError: string | null = null;
+
+        while (Date.now() - startTime < maxPollingTime) {
+          let pollingInterval;
+          if (pollCount < 6) pollingInterval = 2000; else if (pollCount < 12) pollingInterval = 3000; else pollingInterval = 5000;
+          await delay(pollingInterval);
+          pollCount++;
+
+          try {
+            const statusResponse = await fetch(`${FASHN_ENDPOINT_URL}/status/${predictionId}`, { method: "GET", headers });
+            if (!statusResponse.ok) {
+              console.error("Background: FASHN API /status poll error for model variation job:", statusResponse.status);
+              continue;
+            }
+            const statusData = await statusResponse.json();
+            console.log(`Background: Model variation job ${predictionId} status: ${statusData.status}`);
+            if (statusData.status === "completed") {
+              finalResultUrl = statusData.output?.[0] || null;
+              break;
+            }
+            if (statusData.status === "failed" || statusData.status === "error") {
+              finalError = statusData.error?.message || "Unknown API error";
+              break;
+            }
+          } catch (e) {
+            console.error("Background: Error polling model variation job:", e);
+          }
+        }
+
+        if (!finalResultUrl && !finalError) {
+          finalError = "Model variation request timed out after 3 minutes.";
+        }
+
+        // Send final results to the specific tab
+        if (sender.tab && sender.tab.id) {
+          if (finalResultUrl) {
+            chrome.tabs.sendMessage(sender.tab.id, {
+              action: "modelVariationResult",
+              result: [finalResultUrl],
+              originalSourceImageSrc: sourceImageSrc,
+              targetIndex: typeof targetIndex === "number" ? targetIndex : undefined
+            });
+          } else {
+            chrome.tabs.sendMessage(sender.tab.id, {
+              action: "modelVariationResult",
+              error: finalError || "Unknown error",
+              originalSourceImageSrc: sourceImageSrc,
+              targetIndex: typeof targetIndex === "number" ? targetIndex : undefined
+            });
+          }
+        }
+
+      } catch (error: unknown) {
+        console.error("Background: Error in 'initiateModelVariation':", error);
+        if (sender.tab && sender.tab.id) {
+          const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred in the extension.";
+          chrome.tabs.sendMessage(sender.tab.id, {
+            action: "modelVariationResult",
+            error: errorMessage,
+            originalSourceImageSrc: request.sourceImageSrc
+          });
+        }
+      }
+    })();
+    return true; // keep sendResponse open for async
+  }
 });
 
 chrome.runtime.onInstalled.addListener(() => {

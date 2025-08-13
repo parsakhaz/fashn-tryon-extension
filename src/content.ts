@@ -7,8 +7,9 @@ interface TryOnModalElement extends HTMLDivElement {
     closeButton: HTMLButtonElement;
     lastGarmentImageUrl?: string;
     currentGarmentImageUrl?: string;
-    show: (message: string, isError?: boolean, imageUrls?: string[] | string | null) => void;
-    showLoading: (garmentImageUrl: string, modelImageUrls: string[], predictionIds?: string[]) => void;
+    variationHistory?: Record<number, { versions: string[]; index: number }>;
+    show: (message: string, isError?: boolean, imageUrls?: string[] | string | null, mode?: 'tryon' | 'swap') => void;
+    showLoading: (garmentImageUrl: string, modelImageUrls: string[], predictionIds?: string[], mode?: 'tryon' | 'swap') => void;
     hide: () => void;
 }
 
@@ -39,7 +40,7 @@ function getTryOnModal(): TryOnModalElement {
     modal.appendChild(modalContentWrapper);
     document.body.appendChild(modal);
 
-    modal.show = (message, isError = false, imageUrls = null) => {
+    modal.show = (message, isError = false, imageUrls = null, mode: 'tryon' | 'swap' = 'tryon') => {
         if (imageUrls) {
             // Handle multiple images or single image - always use carousel for consistency
             const images = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
@@ -60,7 +61,7 @@ function getTryOnModal(): TryOnModalElement {
                 <div class="fashn-tryon-result-container">
                     <div class="fashn-carousel-container">
                         <div class="fashn-carousel-header">
-                            <h3>Your Try-On Results (${images.length}${hasReference ? ' + Reference' : ''})</h3>
+                            <h3>Your ${mode === 'swap' ? 'Model Swap Result' : 'Try-On Results'} (${images.length}${hasReference ? ' + Reference' : ''})</h3>
                             <div class="fashn-carousel-counter">
                                 <span id="current-image">1</span> / ${allImages.length}
                             </div>
@@ -103,11 +104,31 @@ function getTryOnModal(): TryOnModalElement {
                             📥 Download All
                         </button>
                     </div>
+                    <div class="fashn-tryon-result-buttons">
+                        <div class="fashn-variation-controls">
+                            <button id="fashn-variation-subtle-btn" class="fashn-result-button fashn-download-button">✨ Variation: Subtle</button>
+                            <button id="fashn-variation-strong-btn" class="fashn-result-button fashn-download-button">✨ Variation: Strong</button>
+                        </div>
+                        <div class="fashn-variation-history-controls">
+                            <button id="fashn-undo-btn" class="fashn-result-button fashn-download-button" title="Undo">↶ Undo</button>
+                            <button id="fashn-redo-btn" class="fashn-result-button fashn-download-button" title="Redo">↷ Redo</button>
+                        </div>
+                    </div>
                 </div>
             `;
             
             // Setup carousel functionality with all images including reference
             setupCarousel(allImages, images.length);
+
+            // Initialize per-slide history
+            modal.variationHistory = {};
+            const slides = modal.contentDiv.querySelectorAll('.fashn-carousel-image');
+            slides.forEach((img, idx) => {
+                const isReference = (img as HTMLElement).getAttribute('data-is-reference') === 'true';
+                if (!isReference) {
+                    modal.variationHistory![idx] = { versions: [(img as HTMLImageElement).src], index: 0 };
+                }
+            });
             
             // Update lastGarmentImageUrl for "Try Again" functionality
             if (modal.currentGarmentImageUrl) {
@@ -127,6 +148,90 @@ function getTryOnModal(): TryOnModalElement {
                     }
                 };
             }
+
+            // Variation button logic
+            const variationSubtleBtn = modal.contentDiv.querySelector('#fashn-variation-subtle-btn') as HTMLButtonElement;
+            const variationStrongBtn = modal.contentDiv.querySelector('#fashn-variation-strong-btn') as HTMLButtonElement;
+            const undoBtn = modal.contentDiv.querySelector('#fashn-undo-btn') as HTMLButtonElement;
+            const redoBtn = modal.contentDiv.querySelector('#fashn-redo-btn') as HTMLButtonElement;
+
+            const getActiveSlideIndex = (): number => {
+                const active = modal.contentDiv.querySelector('.fashn-carousel-image.active') as HTMLImageElement | null;
+                if (!active) return 0;
+                const idxAttr = active.getAttribute('data-index');
+                return idxAttr ? parseInt(idxAttr, 10) : 0;
+            };
+            const isReferenceIndex = (idx: number): boolean => {
+                const img = modal.contentDiv.querySelector(`.fashn-carousel-image[data-index="${idx}"]`) as HTMLElement | null;
+                return !!img && img.getAttribute('data-is-reference') === 'true';
+            };
+            const refreshUndoRedoState = () => {
+                const idx = getActiveSlideIndex();
+                const state = modal.variationHistory?.[idx];
+                if (!undoBtn || !redoBtn || !state) return;
+                undoBtn.disabled = state.index <= 0;
+                redoBtn.disabled = state.index >= state.versions.length - 1;
+            };
+            const applyImageAt = (idx: number) => {
+                const state = modal.variationHistory?.[idx];
+                if (!state) return;
+                const img = modal.contentDiv.querySelector(`.fashn-carousel-image[data-index="${idx}"]`) as HTMLImageElement | null;
+                if (img) img.src = state.versions[state.index];
+                refreshUndoRedoState();
+            };
+
+            const triggerVariation = async (strength: 'subtle' | 'strong') => {
+                    const idx = getActiveSlideIndex();
+                    if (isReferenceIndex(idx)) return; // disable for reference image
+                    const img = modal.contentDiv.querySelector(`.fashn-carousel-image[data-index="${idx}"]`) as HTMLImageElement | null;
+                    if (!img) return;
+                    const btn = strength === 'subtle' ? variationSubtleBtn : variationStrongBtn;
+                    if (!btn) return;
+                    try {
+                        const prevText = btn.textContent;
+                        btn.textContent = strength === 'subtle' ? '⏳ Subtle' : '⏳ Strong';
+                        btn.disabled = true;
+                        const initialResponse = await chrome.runtime.sendMessage({
+                            action: 'initiateModelVariation',
+                            sourceImageSrc: img.src,
+                            targetIndex: idx,
+                            variationStrength: strength,
+                        });
+                        if (initialResponse && initialResponse.error) {
+                            btn.textContent = prevText || (strength === 'subtle' ? '✨ Variation: Subtle' : '✨ Variation: Strong');
+                            btn.disabled = false;
+                        }
+                    } catch {
+                        btn.textContent = strength === 'subtle' ? '✨ Variation: Subtle' : '✨ Variation: Strong';
+                        btn.disabled = false;
+                    }
+                };
+
+            if (variationSubtleBtn) {
+                variationSubtleBtn.onclick = () => triggerVariation('subtle');
+            }
+            if (variationStrongBtn) {
+                variationStrongBtn.onclick = () => triggerVariation('strong');
+            }
+            if (undoBtn) {
+                undoBtn.onclick = () => {
+                    const idx = getActiveSlideIndex();
+                    const state = modal.variationHistory?.[idx];
+                    if (!state || state.index <= 0) return;
+                    state.index -= 1;
+                    applyImageAt(idx);
+                };
+            }
+            if (redoBtn) {
+                redoBtn.onclick = () => {
+                    const idx = getActiveSlideIndex();
+                    const state = modal.variationHistory?.[idx];
+                    if (!state || state.index >= state.versions.length - 1) return;
+                    state.index += 1;
+                    applyImageAt(idx);
+                };
+            }
+            refreshUndoRedoState();
         } else {
             // Remove carousel class for error/message display
             modal.classList.remove('fashn-modal-with-carousel');
@@ -135,7 +240,7 @@ function getTryOnModal(): TryOnModalElement {
         modal.style.display = 'flex';
     };
 
-    modal.showLoading = (garmentImageUrl, modelImageUrls, predictionIds) => {
+    modal.showLoading = (garmentImageUrl, modelImageUrls, predictionIds, mode = 'tryon') => {
         // Remove carousel class for loading screen
         modal.classList.remove('fashn-modal-with-carousel');
         // Store garment image URL for later use in carousel
@@ -143,8 +248,8 @@ function getTryOnModal(): TryOnModalElement {
         
         const loadingHTML = `
             <div class="fashn-loading-container">
-                <h3 class="fashn-loading-title">Creating Your Virtual Try-On Results</h3>
-                <p class="fashn-loading-subtitle">Processing ${modelImageUrls.length} model image${modelImageUrls.length > 1 ? 's' : ''}</p>
+                <h3 class="fashn-loading-title">${mode === 'swap' ? 'Creating Your Model Swap Result' : 'Creating Your Virtual Try-On Results'}</h3>
+                <p class="fashn-loading-subtitle">${mode === 'swap' ? 'Transforming model identity while preserving clothing' : `Processing ${modelImageUrls.length} model image${modelImageUrls.length > 1 ? 's' : ''}`}</p>
                 <div class="fashn-images-container">
                     <div class="fashn-image-section">
                         <div class="fashn-models-grid">
@@ -155,7 +260,7 @@ function getTryOnModal(): TryOnModalElement {
                                 </div>
                             `).join('')}
                         </div>
-                        <p class="fashn-image-label">Your Models</p>
+                        <p class="fashn-image-label">${mode === 'swap' ? 'Source Image' : 'Your Models'}</p>
                     </div>
                     
                     <div class="fashn-loading-animation">
@@ -170,7 +275,7 @@ function getTryOnModal(): TryOnModalElement {
                         <div class="fashn-image-wrapper">
                             <img src="${garmentImageUrl}" alt="Selected Garment" class="fashn-loading-image" />
                         </div>
-                        <p class="fashn-image-label">Selected Item</p>
+                        <p class="fashn-image-label">${mode === 'swap' ? 'Transformed Output' : 'Selected Item'}</p>
                     </div>
                 </div>
                 <div class="fashn-progress-bar">
@@ -357,7 +462,7 @@ chrome.runtime.onMessage.addListener((request) => {
             modal.show(`Error: ${request.error}`, true);
         } else if (request.result && request.result.length > 0) {
             console.log("Content Script: Try-On Results from background:", request.result);
-            modal.show("Try-on successful!", false, request.result);
+            modal.show("Try-on successful!", false, request.result, 'tryon');
         } else {
             modal.show('No result received or an unexpected issue occurred.', true);
         }
@@ -370,9 +475,55 @@ chrome.runtime.onMessage.addListener((request) => {
             modal.show(`Error: ${request.error}`, true);
         } else if (request.result && request.result.length > 0) {
             console.log("Content Script: Model Swap Results from background:", request.result);
-            modal.show("Model swap successful!", false, request.result);
+            modal.show("Model swap successful!", false, request.result, 'swap');
         } else {
             modal.show('No result received or an unexpected issue occurred.', true);
+        }
+    }
+    if (request.action === "modelVariationResult") {
+        const modal = getTryOnModal();
+        const variationSubtleBtn = modal.contentDiv.querySelector('#fashn-variation-subtle-btn') as HTMLButtonElement | null;
+        const variationStrongBtn = modal.contentDiv.querySelector('#fashn-variation-strong-btn') as HTMLButtonElement | null;
+        if (variationSubtleBtn) { variationSubtleBtn.textContent = '✨ Variation: Subtle'; variationSubtleBtn.disabled = false; }
+        if (variationStrongBtn) { variationStrongBtn.textContent = '✨ Variation: Strong'; variationStrongBtn.disabled = false; }
+        if (request.error) {
+            console.error("Content Script: Model Variation Error from background:", request.error);
+            modal.show(`Error: ${request.error}`, true);
+        } else if (request.result && request.result.length > 0) {
+            const targetIndex: number | undefined = request.targetIndex;
+            const resultUrl: string = request.result[0];
+            // Update history for target slide
+            const idx = typeof targetIndex === 'number' ? targetIndex : 0;
+            if (!modal.variationHistory) modal.variationHistory = {};
+            if (!modal.variationHistory[idx]) {
+                const currentImg = modal.contentDiv.querySelector(`.fashn-carousel-image[data-index="${idx}"]`) as HTMLImageElement | null;
+                if (currentImg) modal.variationHistory[idx] = { versions: [currentImg.src], index: 0 };
+            }
+            const state = modal.variationHistory[idx];
+            if (state) {
+                // Truncate forward history
+                if (state.index < state.versions.length - 1) {
+                    state.versions = state.versions.slice(0, state.index + 1);
+                }
+                // Cap versions to 10
+                if (state.versions.length >= 10) {
+                    state.versions.shift();
+                    state.index = Math.max(0, state.index - 1);
+                }
+                state.versions.push(resultUrl);
+                state.index = state.versions.length - 1;
+                const targetImg = modal.contentDiv.querySelector(`.fashn-carousel-image[data-index="${idx}"]`) as HTMLImageElement | null;
+                if (targetImg) targetImg.src = resultUrl;
+                // Refresh undo/redo buttons
+                const undoBtn = modal.contentDiv.querySelector('#fashn-undo-btn') as HTMLButtonElement | null;
+                const redoBtn = modal.contentDiv.querySelector('#fashn-redo-btn') as HTMLButtonElement | null;
+                if (undoBtn && redoBtn) {
+                    undoBtn.disabled = state.index <= 0;
+                    redoBtn.disabled = state.index >= state.versions.length - 1;
+                }
+            }
+        } else {
+            modal.show('No variation result received or an unexpected issue occurred.', true);
         }
     }
 });
@@ -587,7 +738,7 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
         }
 
         // Show the new visual loading screen
-        modal.showLoading(imageUrl, modelImageUrls);
+        modal.showLoading(imageUrl, modelImageUrls, undefined, 'tryon');
 
         // Store the garment URL for the "Try Again" functionality
         modal.lastGarmentImageUrl = imageUrl;
@@ -604,7 +755,7 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
                  modal.show(`Error: ${initialResponse.error}`, true);
             } else if (initialResponse && initialResponse.status === "processing") {
                 // Update loading screen with prediction ID
-                modal.showLoading(imageUrl, modelImageUrls, initialResponse.predictionIds);
+                modal.showLoading(imageUrl, modelImageUrls, initialResponse.predictionIds, 'tryon');
             }
             // Else: background script will send a message with the final result or error
         } catch (error: unknown) {
@@ -627,7 +778,7 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
         }
 
         // Show the loading screen for model swap (no uploaded model images needed)
-        modal.showLoading(imageUrl, [imageUrl]);
+        modal.showLoading(imageUrl, [imageUrl], undefined, 'swap');
 
         // Store the fashion model URL for potential retry functionality
         modal.lastGarmentImageUrl = imageUrl;
@@ -643,7 +794,7 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
                  modal.show(`Error: ${initialResponse.error}`, true);
             } else if (initialResponse && initialResponse.status === "processing") {
                 // Update loading screen with prediction IDs
-                modal.showLoading(imageUrl, [imageUrl], initialResponse.predictionIds);
+                modal.showLoading(imageUrl, [imageUrl], initialResponse.predictionIds, 'swap');
             }
             // Else: background script will send a message with the final result or error
         } catch (error: unknown) {

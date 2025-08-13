@@ -513,6 +513,13 @@
     flex-wrap: wrap;
 }
 
+.fashn-variation-controls,
+.fashn-variation-history-controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
 .fashn-result-button {
     padding: 12px 20px;
     border: none;

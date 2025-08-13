@@ -13,6 +13,13 @@ const Options = () => {
   const [modelSwapSeed, setModelSwapSeed] = useState<number>(42);
   const [modelSwapLoraUrl, setModelSwapLoraUrl] = useState<string>("");
 
+  // Variation settings
+  const [variationStrength, setVariationStrength] = useState<"subtle" | "strong">("subtle");
+  const [variationSeed, setVariationSeed] = useState<number>(42);
+  const [variationLoraUrl, setVariationLoraUrl] = useState<string>("");
+  const [variationOutputFormat, setVariationOutputFormat] = useState<"png" | "jpeg">("png");
+  const [variationReturnBase64, setVariationReturnBase64] = useState<boolean>(false);
+
   useEffect(() => {
     chrome.storage.local.get([
       "modelImagesBase64", 
@@ -20,7 +27,13 @@ const Options = () => {
       "modelSwapPrompt", 
       "modelSwapBackgroundChange", 
       "modelSwapSeed", 
-      "modelSwapLoraUrl"
+      "modelSwapLoraUrl",
+      // variation
+      "variationStrength",
+      "variationSeed",
+      "variationLoraUrl",
+      "variationOutputFormat",
+      "variationReturnBase64"
     ], (result) => {
       console.log("Options: Storage result:", result);
       console.log("Options: Model images exist:", !!result.modelImagesBase64);
@@ -43,6 +56,22 @@ const Options = () => {
       }
       if (result.modelSwapLoraUrl) {
         setModelSwapLoraUrl(result.modelSwapLoraUrl);
+      }
+      // Load variation settings
+      if (result.variationStrength === "subtle" || result.variationStrength === "strong") {
+        setVariationStrength(result.variationStrength);
+      }
+      if (typeof result.variationSeed === 'number') {
+        setVariationSeed(result.variationSeed);
+      }
+      if (typeof result.variationLoraUrl === 'string') {
+        setVariationLoraUrl(result.variationLoraUrl);
+      }
+      if (result.variationOutputFormat === 'png' || result.variationOutputFormat === 'jpeg') {
+        setVariationOutputFormat(result.variationOutputFormat);
+      }
+      if (typeof result.variationReturnBase64 === 'boolean') {
+        setVariationReturnBase64(result.variationReturnBase64);
       }
     });
   }, []);
@@ -135,6 +164,19 @@ const Options = () => {
     
     chrome.storage.local.set(settings, () => {
       showTemporaryMessage("Model swap settings saved!");
+    });
+  };
+
+  const saveVariationSettings = () => {
+    const settings = {
+      variationStrength,
+      variationSeed,
+      variationLoraUrl: variationLoraUrl.trim(),
+      variationOutputFormat,
+      variationReturnBase64,
+    };
+    chrome.storage.local.set(settings, () => {
+      showTemporaryMessage("Model variation settings saved!");
     });
   };
 
@@ -340,6 +382,89 @@ const Options = () => {
             }}
           >
             Save Model Swap Settings
+          </button>
+        </div>
+
+        <div className="mt-10">
+          <h2 className="text-2xl font-semibold mb-4" style={{ color: '#1A1A1A' }}>Model Variation Settings</h2>
+          <p className="text-sm mb-6" style={{ color: '#333333' }}>
+            Configure model variation. Variations create subtle or strong changes to the current result image while maintaining composition.
+          </p>
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>Variation Strength</label>
+              <select
+                value={variationStrength}
+                onChange={(e) => setVariationStrength((e.target.value as 'subtle' | 'strong'))}
+                className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
+                style={{ borderColor: '#333333', backgroundColor: '#FAFAFA', color: '#1A1A1A' }}
+              >
+                <option value="subtle">Subtle (default)</option>
+                <option value="strong">Strong</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>Seed Value</label>
+              <input
+                type="number"
+                value={variationSeed}
+                onChange={(e) => setVariationSeed(parseInt(e.target.value) || 42)}
+                min="0"
+                max="4294967295"
+                className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
+                style={{ borderColor: '#333333', backgroundColor: '#FAFAFA', color: '#1A1A1A' }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>LoRA URL (Optional)</label>
+              <input
+                type="url"
+                value={variationLoraUrl}
+                onChange={(e) => setVariationLoraUrl(e.target.value)}
+                placeholder="https://example.com/custom_identity.safetensors"
+                className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
+                style={{ borderColor: '#333333', backgroundColor: '#FAFAFA', color: '#1A1A1A' }}
+              />
+            </div>
+
+            <details>
+              <summary className="text-sm font-medium" style={{ color: '#1A1A1A', cursor: 'pointer' }}>Advanced</summary>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>Output Format</label>
+                  <select
+                    value={variationOutputFormat}
+                    onChange={(e) => setVariationOutputFormat((e.target.value as 'png' | 'jpeg'))}
+                    className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
+                    style={{ borderColor: '#333333', backgroundColor: '#FAFAFA', color: '#1A1A1A' }}
+                  >
+                    <option value="png">PNG (highest quality)</option>
+                    <option value="jpeg">JPEG (faster)</option>
+                  </select>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <input
+                    id="returnBase64"
+                    type="checkbox"
+                    checked={variationReturnBase64}
+                    onChange={(e) => setVariationReturnBase64(e.target.checked)}
+                    className="w-4 h-4 rounded focus:ring-2"
+                    style={{ accentColor: '#1A1A1A' }}
+                  />
+                  <label htmlFor="returnBase64" className="text-sm" style={{ color: '#1A1A1A' }}>Return Base64 (enhanced privacy)</label>
+                </div>
+              </div>
+            </details>
+
+          </div>
+          <button
+            onClick={saveVariationSettings}
+            className="w-full font-bold py-3 px-4 shadow-md hover:shadow-lg transition-all duration-200 ease-in-out transform hover:scale-105 hover:opacity-90 mt-6"
+            style={{ backgroundColor: '#1A1A1A', color: '#FAFAFA' }}
+          >
+            Save Model Variation Settings
           </button>
         </div>
       </div>
