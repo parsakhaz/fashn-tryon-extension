@@ -33,9 +33,9 @@ export const Popup = () => {
     <div className="w-full h-full min-h-screen p-6" style={{ backgroundColor: '#FAFAFA' }}>
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold mb-2" style={{ color: '#1A1A1A' }}>
-          FASHN AI Try-On
+          FASHN AI Try-On & Model Swap
         </h1>
-        <p style={{ color: '#333333' }} className="text-sm">Virtual fashion try-on for any website</p>
+        <p style={{ color: '#333333' }} className="text-sm">Virtual fashion try-on and model swap for any website</p>
       </div>
 
       {setupComplete ? (
@@ -49,10 +49,14 @@ export const Popup = () => {
               {modelImagesCount} model image{modelImagesCount !== 1 ? 's' : ''} uploaded
             </p>
             <p className="text-sm mt-2" style={{ color: '#0D9488' }}>
-              Hover over clothing images on any website to see the 👗 try-on button
+              Hover over clothing images to see 👗 (try-on) and 🔄 (model swap) buttons
             </p>
             <p className="text-xs mt-1" style={{ color: '#0D9488' }}>
-              Multiple images will create up to {Math.min(modelImagesCount, 4)} try-on results
+              • Try-on: Add clothes to your model images<br/>
+              • Model swap: Transform model identity while keeping clothes
+            </p>
+            <p className="text-xs mt-1" style={{ color: '#0D9488' }}>
+              Multiple images will create up to {Math.min(modelImagesCount, 4)} results
             </p>
           </div>
           
@@ -78,6 +82,9 @@ export const Popup = () => {
             <div className="text-sm mt-3 space-y-1" style={{ color: '#A16207' }}>
               {modelImagesCount === 0 && <div>• Upload at least one model image</div>}
               {!hasApiKey && <div>• Add your FASHN AI API key</div>}
+              <div className="text-xs mt-2" style={{ color: '#92400E' }}>
+                Both try-on and model swap features require the same setup
+              </div>
             </div>
           </div>
           

@@ -362,6 +362,19 @@ chrome.runtime.onMessage.addListener((request) => {
             modal.show('No result received or an unexpected issue occurred.', true);
         }
     }
+    
+    if (request.action === "modelSwapResult") {
+        const modal = getTryOnModal();
+        if (request.error) {
+            console.error("Content Script: Model Swap Error from background:", request.error);
+            modal.show(`Error: ${request.error}`, true);
+        } else if (request.result && request.result.length > 0) {
+            console.log("Content Script: Model Swap Results from background:", request.result);
+            modal.show("Model swap successful!", false, request.result);
+        } else {
+            modal.show('No result received or an unexpected issue occurred.', true);
+        }
+    }
 });
 
 // Listen for retry try-on events
@@ -475,13 +488,20 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
     if (htmlElement.dataset.fashnButtonAdded === 'true') return;
     if (element.closest('#fashn-tryon-modal')) return; // Don't add to our own modal images
 
-    const button = document.createElement('button');
-    button.innerHTML = '👗'; // Dress emoji
-    button.title = 'Virtual Try-On with FASHN AI';
-    button.className = 'fashn-tryon-button'; // Class for CSS styling
+    // Create try-on button
+    const tryOnButton = document.createElement('button');
+    tryOnButton.innerHTML = '👗'; // Dress emoji
+    tryOnButton.title = 'Virtual Try-On with FASHN AI';
+    tryOnButton.className = 'fashn-tryon-button'; // Class for CSS styling
+
+    // Create model swap button
+    const modelSwapButton = document.createElement('button');
+    modelSwapButton.innerHTML = '🔄'; // Arrow emoji
+    modelSwapButton.title = 'Model Swap with FASHN AI';
+    modelSwapButton.className = 'fashn-model-swap-button'; // Class for CSS styling
 
     const wrapper = document.createElement('div');
-    wrapper.className = 'fashn-tryon-button-wrapper';
+    wrapper.className = 'fashn-buttons-wrapper';
     
     // Position wrapper over the element
     const rect = element.getBoundingClientRect();
@@ -490,11 +510,13 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
     wrapper.style.width = `${rect.width}px`;
     wrapper.style.height = `${rect.height}px`;
 
-    wrapper.appendChild(button);
+    wrapper.appendChild(tryOnButton);
+    wrapper.appendChild(modelSwapButton);
     document.body.appendChild(wrapper);
     htmlElement.dataset.fashnButtonAdded = 'true';
 
-    button.onclick = async (e) => {
+    // Try-on button click handler
+    tryOnButton.onclick = async (e) => {
         e.stopPropagation();
         e.preventDefault();
 
@@ -587,6 +609,104 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
             // Else: background script will send a message with the final result or error
         } catch (error: unknown) {
             console.error("Content Script: Error sending message to background:", error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            modal.show(`Communication error with extension: ${errorMessage}`, true);
+        }
+    };
+
+    // Model swap button click handler
+    modelSwapButton.onclick = async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        // Get model images from storage first
+        let modelImageUrls: string[] = [];
+        try {
+            const result = await chrome.storage.local.get(['modelImagesBase64']);
+            modelImageUrls = result.modelImagesBase64 || [];
+        } catch (error) {
+            console.error('Failed to get model images from storage:', error);
+        }
+
+        const modal = getTryOnModal();
+        
+        if (!imageUrl) {
+            modal.show('Could not get image source.', true);
+            return;
+        }
+
+        if (modelImageUrls.length === 0) {
+            const modal = getTryOnModal();
+            modal.contentDiv.innerHTML = `
+                <div style="padding: 20px; text-align: center;">
+                    <h3 style="color: #1A1A1A; margin-bottom: 16px;">Setup Required</h3>
+                    <p style="color: #333333; margin-bottom: 20px;">You need to upload a model image first to use model swap.</p>
+                    <button id="fashn-open-options" style="
+                        background: #1A1A1A;
+                        color: #FAFAFA;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        margin-right: 10px;
+                        transition: opacity 0.2s;
+                    " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Open Settings</button>
+                    <button id="fashn-cancel-setup" style="
+                        background: #FAFAFA;
+                        color: #333333;
+                        border: 1px solid #333333;
+                        padding: 12px 24px;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        cursor: pointer;
+                        transition: opacity 0.2s;
+                    " onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Cancel</button>
+                </div>
+            `;
+            modal.style.display = 'flex';
+            
+            // Add event listeners
+            const openOptionsBtn = modal.contentDiv.querySelector('#fashn-open-options') as HTMLButtonElement;
+            const cancelBtn = modal.contentDiv.querySelector('#fashn-cancel-setup') as HTMLButtonElement;
+            
+            if (openOptionsBtn) {
+                openOptionsBtn.onclick = () => {
+                    chrome.runtime.sendMessage({ action: "openOptions" });
+                    modal.hide();
+                };
+            }
+            
+            if (cancelBtn) {
+                cancelBtn.onclick = () => modal.hide();
+            }
+            
+            return;
+        }
+
+        // Show the loading screen for model swap
+        modal.showLoading(imageUrl, modelImageUrls);
+
+        // Store the fashion model URL for potential retry functionality
+        modal.lastGarmentImageUrl = imageUrl;
+
+        try {
+            // Send model swap request to background script
+            const initialResponse = await chrome.runtime.sendMessage({
+                action: "initiateModelSwap",
+                fashionModelImageSrc: imageUrl,
+            });
+
+            if (initialResponse && initialResponse.error) {
+                 modal.show(`Error: ${initialResponse.error}`, true);
+            } else if (initialResponse && initialResponse.status === "processing") {
+                // Update loading screen with prediction IDs
+                modal.showLoading(imageUrl, modelImageUrls, initialResponse.predictionIds);
+            }
+            // Else: background script will send a message with the final result or error
+        } catch (error: unknown) {
+            console.error("Content Script: Error sending model swap message to background:", error);
             const errorMessage = error instanceof Error ? error.message : String(error);
             modal.show(`Communication error with extension: ${errorMessage}`, true);
         }
