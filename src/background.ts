@@ -280,13 +280,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           modelSwapPrompt, 
           modelSwapBackgroundChange, 
           modelSwapSeed, 
-          modelSwapLoraUrl 
+          modelSwapLoraUrl,
+          firstModelSwapDone
         } = await chrome.storage.local.get([
           "fashnApiKey",
           "modelSwapPrompt",
           "modelSwapBackgroundChange", 
           "modelSwapSeed",
-          "modelSwapLoraUrl"
+          "modelSwapLoraUrl",
+          "firstModelSwapDone"
         ]);
         if (!fashnApiKey) {
           console.log("Background: API Key not set");
@@ -325,7 +327,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               model_image: string;
               prompt: string;
               background_change: boolean;
-              seed: number;
+              seed?: number;
               lora_url?: string;
             };
           } = {
@@ -333,10 +335,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             inputs: {
               model_image: fashionModelImageBase64,
               prompt: modelSwapPrompt || "",
-              background_change: modelSwapBackgroundChange || false,
-              seed: modelSwapSeed || 42
+              background_change: modelSwapBackgroundChange || false
             }
           };
+
+          // Determine seed behavior: first run uses 42, then random unless user set a seed
+          let seedToUse: number | undefined;
+          const isFirstModelSwap = !firstModelSwapDone;
+          if (typeof modelSwapSeed === "number") {
+            seedToUse = modelSwapSeed;
+          } else if (isFirstModelSwap) {
+            seedToUse = 42;
+          }
+          if (typeof seedToUse === "number") {
+            apiPayload.inputs.seed = seedToUse;
+          }
+          if (isFirstModelSwap) {
+            chrome.storage.local.set({ firstModelSwapDone: true });
+          }
 
           if (modelSwapLoraUrl && modelSwapLoraUrl.trim()) {
             apiPayload.inputs.lora_url = modelSwapLoraUrl.trim();
@@ -519,14 +535,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           variationSeed, 
           variationLoraUrl,
           variationOutputFormat,
-          variationReturnBase64
+          variationReturnBase64,
+          firstVariationDone
         } = await chrome.storage.local.get([
           "fashnApiKey",
           "variationStrength",
           "variationSeed",
           "variationLoraUrl",
           "variationOutputFormat",
-          "variationReturnBase64"
+          "variationReturnBase64",
+          "firstVariationDone"
         ]);
 
         if (!fashnApiKey) {
@@ -578,8 +596,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (variationStrengthFinal) {
           apiPayload.inputs.variation_strength = variationStrengthFinal;
         }
+        // Determine seed behavior: first run uses 42, then random unless user set a seed
+        let variationSeedToUse: number | undefined;
+        const isFirstVariation = !firstVariationDone;
         if (typeof variationSeed === "number") {
-          apiPayload.inputs.seed = variationSeed;
+          variationSeedToUse = variationSeed;
+        } else if (isFirstVariation) {
+          variationSeedToUse = 42;
+        }
+        if (typeof variationSeedToUse === "number") {
+          apiPayload.inputs.seed = variationSeedToUse;
+        }
+        if (isFirstVariation) {
+          chrome.storage.local.set({ firstVariationDone: true });
         }
         if (variationLoraUrl && typeof variationLoraUrl === "string" && variationLoraUrl.trim()) {
           apiPayload.inputs.lora_url = variationLoraUrl.trim();

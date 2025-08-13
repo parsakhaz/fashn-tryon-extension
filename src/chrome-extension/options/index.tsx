@@ -10,12 +10,12 @@ const Options = () => {
   // Model swap settings
   const [modelSwapPrompt, setModelSwapPrompt] = useState<string>("");
   const [modelSwapBackgroundChange, setModelSwapBackgroundChange] = useState<boolean>(false);
-  const [modelSwapSeed, setModelSwapSeed] = useState<number>(42);
+  const [modelSwapSeed, setModelSwapSeed] = useState<number | "">("");
   const [modelSwapLoraUrl, setModelSwapLoraUrl] = useState<string>("");
 
   // Variation settings
   const [variationStrength, setVariationStrength] = useState<"subtle" | "strong">("subtle");
-  const [variationSeed, setVariationSeed] = useState<number>(42);
+  const [variationSeed, setVariationSeed] = useState<number | "">("");
   const [variationLoraUrl, setVariationLoraUrl] = useState<string>("");
   const [variationOutputFormat, setVariationOutputFormat] = useState<"png" | "jpeg">("png");
   const [variationReturnBase64, setVariationReturnBase64] = useState<boolean>(false);
@@ -53,6 +53,8 @@ const Options = () => {
       }
       if (typeof result.modelSwapSeed === 'number') {
         setModelSwapSeed(result.modelSwapSeed);
+      } else {
+        setModelSwapSeed("");
       }
       if (result.modelSwapLoraUrl) {
         setModelSwapLoraUrl(result.modelSwapLoraUrl);
@@ -63,6 +65,8 @@ const Options = () => {
       }
       if (typeof result.variationSeed === 'number') {
         setVariationSeed(result.variationSeed);
+      } else {
+        setVariationSeed("");
       }
       if (typeof result.variationLoraUrl === 'string') {
         setVariationLoraUrl(result.variationLoraUrl);
@@ -155,29 +159,43 @@ const Options = () => {
   };
 
   const saveModelSwapSettings = () => {
-    const settings = {
+    const settingsBase = {
       modelSwapPrompt: modelSwapPrompt.trim(),
       modelSwapBackgroundChange,
-      modelSwapSeed,
       modelSwapLoraUrl: modelSwapLoraUrl.trim()
-    };
-    
-    chrome.storage.local.set(settings, () => {
-      showTemporaryMessage("Model swap settings saved!");
-    });
+    } as const;
+
+    if (modelSwapSeed === "") {
+      chrome.storage.local.remove("modelSwapSeed", () => {
+        chrome.storage.local.set(settingsBase, () => {
+          showTemporaryMessage("Model swap settings saved!");
+        });
+      });
+    } else {
+      chrome.storage.local.set({ ...settingsBase, modelSwapSeed }, () => {
+        showTemporaryMessage("Model swap settings saved!");
+      });
+    }
   };
 
   const saveVariationSettings = () => {
-    const settings = {
+    const settingsBase = {
       variationStrength,
-      variationSeed,
       variationLoraUrl: variationLoraUrl.trim(),
       variationOutputFormat,
       variationReturnBase64,
-    };
-    chrome.storage.local.set(settings, () => {
-      showTemporaryMessage("Model variation settings saved!");
-    });
+    } as const;
+    if (variationSeed === "") {
+      chrome.storage.local.remove("variationSeed", () => {
+        chrome.storage.local.set(settingsBase, () => {
+          showTemporaryMessage("Model variation settings saved!");
+        });
+      });
+    } else {
+      chrome.storage.local.set({ ...settingsBase, variationSeed }, () => {
+        showTemporaryMessage("Model variation settings saved!");
+      });
+    }
   };
 
   return (
@@ -334,12 +352,20 @@ const Options = () => {
                 Seed Value
               </label>
               <p className="text-xs mb-2" style={{ color: '#666666' }}>
-                Control randomness. Use the same seed to reproduce results, or change for different variations.
+                Defaults to 42 on the first run. Leave blank to randomize thereafter, or set a value to reproduce results.
               </p>
               <input
                 type="number"
                 value={modelSwapSeed}
-                onChange={(e) => setModelSwapSeed(parseInt(e.target.value) || 42)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") {
+                    setModelSwapSeed("");
+                    return;
+                  }
+                  const parsed = parseInt(v, 10);
+                  setModelSwapSeed(Number.isNaN(parsed) ? "" : parsed);
+                }}
                 min="0"
                 max="4294967295"
                 className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
@@ -406,10 +432,21 @@ const Options = () => {
 
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>Seed Value</label>
+              <p className="text-xs mb-2" style={{ color: '#666666' }}>
+                Defaults to 42 on the first run. Leave blank to randomize thereafter, or set a value to reproduce results.
+              </p>
               <input
                 type="number"
                 value={variationSeed}
-                onChange={(e) => setVariationSeed(parseInt(e.target.value) || 42)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") {
+                    setVariationSeed("");
+                    return;
+                  }
+                  const parsed = parseInt(v, 10);
+                  setVariationSeed(Number.isNaN(parsed) ? "" : parsed);
+                }}
                 min="0"
                 max="4294967295"
                 className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
