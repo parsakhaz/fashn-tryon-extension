@@ -11,15 +11,17 @@
     transition: opacity 0.3s ease;
     pointer-events: none;
     display: flex;
-    gap: 4px;
-    justify-content: flex-end;
-    align-items: flex-start;
+    flex-direction: column;
+    justify-content: space-between; /* top group at top, bottom group at bottom */
+    align-items: flex-end; /* right align */
     padding: 8px;
 }
 
 /* Common button styles */
 .fashn-tryon-button,
-.fashn-model-swap-button {
+.fashn-model-swap-button,
+.fashn-variation-subtle-button,
+.fashn-variation-strong-button {
     position: relative;
     width: 36px;
     height: 36px;
@@ -39,14 +41,18 @@
 }
 
 .fashn-tryon-button:hover,
-.fashn-model-swap-button:hover {
+.fashn-model-swap-button:hover,
+.fashn-variation-subtle-button:hover,
+.fashn-variation-strong-button:hover {
     transform: scale(1.1);
     background-color: #FAFAFA;
     border-color: #1A1A1A;
 }
 
 .fashn-tryon-button:active,
-.fashn-model-swap-button:active {
+.fashn-model-swap-button:active,
+.fashn-variation-subtle-button:active,
+.fashn-variation-strong-button:active {
     transform: scale(0.95);
 }
 
@@ -54,6 +60,35 @@
 .fashn-model-swap-button {
     /* Model swap button gets a subtle accent */
     background-color: rgba(245, 245, 245, 0.95);
+}
+
+/* Containers inside wrapper to position groups */
+.fashn-buttons-top-right,
+.fashn-buttons-bottom-right {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+    pointer-events: none; /* container doesn't catch events */
+}
+
+.fashn-buttons-top-right > *,
+.fashn-buttons-bottom-right > * {
+    pointer-events: auto; /* buttons are interactive */
+}
+
+.fashn-buttons-top-right {
+    align-items: flex-start;
+}
+
+.fashn-buttons-bottom-right {
+    align-items: flex-end;
+}
+
+/* Top and bottom groups naturally placed by flex layout */
+
+/* Slight accent for strong variation */
+.fashn-variation-strong-button {
+    border-color: rgba(26, 26, 26, 0.35);
 }
 
 /* Modal Styles */

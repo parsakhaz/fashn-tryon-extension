@@ -2,16 +2,16 @@
 // Import styles if you have them in content.css and vite is configured
 // import './content.css'; 
 
-interface TryOnModalElement extends HTMLDivElement {
+	interface TryOnModalElement extends HTMLDivElement {
     contentDiv: HTMLDivElement;
     closeButton: HTMLButtonElement;
     lastGarmentImageUrl?: string;
     currentGarmentImageUrl?: string;
     lastFashionModelImageUrl?: string;
-    currentMode?: 'tryon' | 'swap';
+		currentMode?: 'tryon' | 'swap' | 'variation';
     variationHistory?: Record<number, { versions: string[]; index: number }>;
-    show: (message: string, isError?: boolean, imageUrls?: string[] | string | null, mode?: 'tryon' | 'swap') => void;
-    showLoading: (garmentImageUrl: string, modelImageUrls: string[], predictionIds?: string[], mode?: 'tryon' | 'swap') => void;
+		show: (message: string, isError?: boolean, imageUrls?: string[] | string | null, mode?: 'tryon' | 'swap' | 'variation') => void;
+		showLoading: (garmentImageUrl: string, modelImageUrls: string[], predictionIds?: string[], mode?: 'tryon' | 'swap' | 'variation') => void;
     hide: () => void;
 }
 
@@ -42,7 +42,7 @@ function getTryOnModal(): TryOnModalElement {
     modal.appendChild(modalContentWrapper);
     document.body.appendChild(modal);
 
-    modal.show = (message, isError = false, imageUrls = null, mode: 'tryon' | 'swap' = 'tryon') => {
+    modal.show = (message, isError = false, imageUrls = null, mode: 'tryon' | 'swap' | 'variation' = 'tryon') => {
         modal.currentMode = mode;
         if (imageUrls) {
             // Handle multiple images or single image - always use carousel for consistency
@@ -64,7 +64,7 @@ function getTryOnModal(): TryOnModalElement {
                 <div class="fashn-tryon-result-container">
                     <div class="fashn-carousel-container">
                         <div class="fashn-carousel-header">
-                            <h3>Your ${mode === 'swap' ? 'Model Swap Result' : 'Try-On Results'} (${images.length}${hasReference ? ' + Reference' : ''})</h3>
+                            <h3>Your ${mode === 'swap' ? 'Model Swap Result' : (mode === 'variation' ? 'Variation Result' : 'Try-On Results')} (${images.length}${hasReference ? ' + Reference' : ''})</h3>
                             <div class="fashn-carousel-counter">
                                 <span id="current-image">1</span> / ${allImages.length}
                             </div>
@@ -145,25 +145,30 @@ function getTryOnModal(): TryOnModalElement {
             // Add try again functionality (mode-aware)
             const tryAgainBtn = modal.contentDiv.querySelector('#fashn-try-again-btn') as HTMLButtonElement;
             if (tryAgainBtn) {
-                tryAgainBtn.onclick = () => {
-                    modal.hide();
-                    const modeNow = modal.currentMode || 'tryon';
-                    if (modeNow === 'swap') {
-                        if (modal.lastFashionModelImageUrl) {
-                            const event = new CustomEvent('fashn-retry-modelswap', {
-                                detail: { fashionModelImageUrl: modal.lastFashionModelImageUrl }
-                            });
-                            document.dispatchEvent(event);
+                // Hide Try Again in variation mode
+                if ((modal.currentMode || 'tryon') === 'variation') {
+                    tryAgainBtn.style.display = 'none';
+                } else {
+                    tryAgainBtn.onclick = () => {
+                        modal.hide();
+                        const modeNow = modal.currentMode || 'tryon';
+                        if (modeNow === 'swap') {
+                            if (modal.lastFashionModelImageUrl) {
+                                const event = new CustomEvent('fashn-retry-modelswap', {
+                                    detail: { fashionModelImageUrl: modal.lastFashionModelImageUrl }
+                                });
+                                document.dispatchEvent(event);
+                            }
+                        } else {
+                            if (modal.lastGarmentImageUrl) {
+                                const event = new CustomEvent('fashn-retry-tryon', { 
+                                    detail: { garmentImageUrl: modal.lastGarmentImageUrl } 
+                                });
+                                document.dispatchEvent(event);
+                            }
                         }
-                    } else {
-                        if (modal.lastGarmentImageUrl) {
-                            const event = new CustomEvent('fashn-retry-tryon', { 
-                                detail: { garmentImageUrl: modal.lastGarmentImageUrl } 
-                            });
-                            document.dispatchEvent(event);
-                        }
-                    }
-                };
+                    };
+                }
             }
 
             // Variation button logic
@@ -257,14 +262,14 @@ function getTryOnModal(): TryOnModalElement {
         modal.style.display = 'flex';
     };
 
-    modal.showLoading = (garmentImageUrl, modelImageUrls, predictionIds, mode = 'tryon') => {
+    modal.showLoading = (garmentImageUrl, modelImageUrls, predictionIds, mode: 'tryon' | 'swap' | 'variation' = 'tryon') => {
         modal.currentMode = mode;
         // Remove carousel class for loading screen
         modal.classList.remove('fashn-modal-with-carousel');
         // Store garment image URL for later use in carousel
         modal.currentGarmentImageUrl = garmentImageUrl;
         // Store appropriate last image URL for retry based on mode
-        if (mode === 'swap') {
+		if (mode === 'swap') {
             modal.lastFashionModelImageUrl = garmentImageUrl;
         } else {
             modal.lastGarmentImageUrl = garmentImageUrl;
@@ -272,8 +277,8 @@ function getTryOnModal(): TryOnModalElement {
         
         const loadingHTML = `
             <div class="fashn-loading-container">
-                <h3 class="fashn-loading-title">${mode === 'swap' ? 'Creating Your Model Swap Result' : 'Creating Your Virtual Try-On Results'}</h3>
-                <p class="fashn-loading-subtitle">${mode === 'swap' ? 'Transforming model identity while preserving clothing' : `Processing ${modelImageUrls.length} model image${modelImageUrls.length > 1 ? 's' : ''}`}</p>
+				<h3 class="fashn-loading-title">${mode === 'swap' ? 'Creating Your Model Swap Result' : (mode === 'variation' ? 'Creating Your Variation' : 'Creating Your Virtual Try-On Results')}</h3>
+				<p class="fashn-loading-subtitle">${(mode === 'swap' || mode === 'variation') ? 'Transforming model identity while preserving clothing' : `Processing ${modelImageUrls.length} model image${modelImageUrls.length > 1 ? 's' : ''}`}</p>
                 <div class="fashn-images-container">
                     <div class="fashn-image-section">
                         <div class="fashn-models-grid">
@@ -284,7 +289,7 @@ function getTryOnModal(): TryOnModalElement {
                                 </div>
                             `).join('')}
                         </div>
-                        <p class="fashn-image-label">${mode === 'swap' ? 'Source Image' : 'Your Models'}</p>
+						<p class="fashn-image-label">${(mode === 'swap' || mode === 'variation') ? 'Source Image' : 'Your Models'}</p>
                     </div>
                     
                     <div class="fashn-loading-animation">
@@ -297,11 +302,11 @@ function getTryOnModal(): TryOnModalElement {
                     
                     <div class="fashn-image-section">
                         <div class="fashn-image-wrapper">
-                            <img src="${garmentImageUrl}" 
-                                 alt="${mode === 'swap' ? 'Transformed Output (rendering...)' : 'Selected Garment'}" 
-                                 class="fashn-loading-image ${mode === 'swap' ? 'fashn-loading-output-placeholder' : ''}" />
+							<img src="${garmentImageUrl}" 
+								 alt="${(mode === 'swap' || mode === 'variation') ? 'Transformed Output (rendering...)' : 'Selected Garment'}" 
+								 class="fashn-loading-image ${(mode === 'swap' || mode === 'variation') ? 'fashn-loading-output-placeholder' : ''}" />
                         </div>
-                        <p class="fashn-image-label">${mode === 'swap' ? 'Transformed Output' : 'Selected Item'}</p>
+						<p class="fashn-image-label">${(mode === 'swap' || mode === 'variation') ? 'Transformed Output' : 'Selected Item'}</p>
                     </div>
                 </div>
                 <div class="fashn-progress-bar">
@@ -404,8 +409,8 @@ function setupCarousel(images: string[], resultImagesCount?: number) {
                     const modal = getTryOnModal();
                     const mode = modal.currentMode || 'tryon';
                     const filename = isReference 
-                        ? `fashn-original-${mode === 'swap' ? 'source' : 'garment'}-${Date.now()}.png`
-                        : `fashn-${mode === 'swap' ? 'modelswap' : 'tryon'}-result-${i + 1}-${Date.now()}.png`;
+                        ? `fashn-original-${(mode === 'swap' || mode === 'variation') ? 'source' : 'garment'}-${Date.now()}.png`
+                        : `fashn-${mode === 'swap' ? 'modelswap' : (mode === 'variation' ? 'variation' : 'tryon')}-result-${i + 1}-${Date.now()}.png`;
                     await downloadImage(images[i], null, filename);
                     await new Promise(resolve => setTimeout(resolve, 500)); // Small delay between downloads
                 }
@@ -518,9 +523,14 @@ chrome.runtime.onMessage.addListener((request) => {
             console.error("Content Script: Model Variation Error from background:", request.error);
             modal.show(`Error: ${request.error}`, true);
         } else if (request.result && request.result.length > 0) {
-            const targetIndex: number | undefined = request.targetIndex;
             const resultUrl: string = request.result[0];
-            // Update history for target slide
+            const hasCarousel = !!modal.contentDiv.querySelector('.fashn-carousel-image');
+            if (!hasCarousel) {
+                // If no carousel exists (triggered directly from overlay), show results in variation mode
+                modal.show("Variation successful!", false, request.result, 'variation');
+                return;
+            }
+            const targetIndex: number | undefined = request.targetIndex;
             const idx = typeof targetIndex === 'number' ? targetIndex : 0;
             if (!modal.variationHistory) modal.variationHistory = {};
             if (!modal.variationHistory[idx]) {
@@ -529,11 +539,9 @@ chrome.runtime.onMessage.addListener((request) => {
             }
             const state = modal.variationHistory[idx];
             if (state) {
-                // Truncate forward history
                 if (state.index < state.versions.length - 1) {
                     state.versions = state.versions.slice(0, state.index + 1);
                 }
-                // Cap versions to 10
                 if (state.versions.length >= 10) {
                     state.versions.shift();
                     state.index = Math.max(0, state.index - 1);
@@ -542,7 +550,6 @@ chrome.runtime.onMessage.addListener((request) => {
                 state.index = state.versions.length - 1;
                 const targetImg = modal.contentDiv.querySelector(`.fashn-carousel-image[data-index="${idx}"]`) as HTMLImageElement | null;
                 if (targetImg) targetImg.src = resultUrl;
-                // Refresh undo/redo buttons
                 const undoBtn = modal.contentDiv.querySelector('#fashn-undo-btn') as HTMLButtonElement | null;
                 const redoBtn = modal.contentDiv.querySelector('#fashn-redo-btn') as HTMLButtonElement | null;
                 if (undoBtn && redoBtn) {
@@ -713,8 +720,28 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
     modelSwapButton.title = 'Model Swap with FASHN AI';
     modelSwapButton.className = 'fashn-model-swap-button'; // Class for CSS styling
 
+    // Create variation buttons (bottom-right)
+    const variationSubtleButton = document.createElement('button');
+    variationSubtleButton.innerHTML = '✨';
+    variationSubtleButton.title = 'Subtle Variation with FASHN AI';
+    variationSubtleButton.setAttribute('aria-label', 'Subtle Variation');
+    variationSubtleButton.className = 'fashn-variation-subtle-button';
+
+    const variationStrongButton = document.createElement('button');
+    variationStrongButton.innerHTML = '⚡';
+    variationStrongButton.title = 'Strong Variation with FASHN AI';
+    variationStrongButton.setAttribute('aria-label', 'Strong Variation');
+    variationStrongButton.className = 'fashn-variation-strong-button';
+
     const wrapper = document.createElement('div');
     wrapper.className = 'fashn-buttons-wrapper';
+
+    // Inner containers for top-right and bottom-right groups
+    const topRightContainer = document.createElement('div');
+    topRightContainer.className = 'fashn-buttons-top-right';
+
+    const bottomRightContainer = document.createElement('div');
+    bottomRightContainer.className = 'fashn-buttons-bottom-right';
     
     // Position wrapper over the element
     const rect = element.getBoundingClientRect();
@@ -723,8 +750,15 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
     wrapper.style.width = `${rect.width}px`;
     wrapper.style.height = `${rect.height}px`;
 
-    wrapper.appendChild(tryOnButton);
-    wrapper.appendChild(modelSwapButton);
+    // Append buttons to respective containers
+    topRightContainer.appendChild(tryOnButton);
+    topRightContainer.appendChild(modelSwapButton);
+    bottomRightContainer.appendChild(variationSubtleButton);
+    bottomRightContainer.appendChild(variationStrongButton);
+
+    // Add containers to wrapper
+    wrapper.appendChild(topRightContainer);
+    wrapper.appendChild(bottomRightContainer);
     document.body.appendChild(wrapper);
     htmlElement.dataset.fashnButtonAdded = 'true';
 
@@ -860,6 +894,55 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
             console.error("Content Script: Error sending model swap message to background:", error);
             const errorMessage = error instanceof Error ? error.message : String(error);
             modal.show(`Communication error with extension: ${errorMessage}`, true);
+        }
+    };
+
+    // Variation buttons click handlers (bottom-right)
+    variationSubtleButton.onclick = async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const modal = getTryOnModal();
+        if (!imageUrl) {
+            modal.show('Could not get image source.', true);
+            return;
+        }
+        // Show loading for variation
+        modal.showLoading(imageUrl, [imageUrl], undefined, 'variation');
+        try {
+            await chrome.runtime.sendMessage({
+                action: 'initiateModelVariation',
+                sourceImageSrc: imageUrl,
+                variationStrength: 'subtle',
+            });
+        } catch (error: unknown) {
+            console.error('Content Script: Error sending subtle variation message to background:', error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const modalNow = getTryOnModal();
+            modalNow.show(`Communication error with extension: ${errorMessage}`, true);
+        }
+    };
+
+    variationStrongButton.onclick = async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const modal = getTryOnModal();
+        if (!imageUrl) {
+            modal.show('Could not get image source.', true);
+            return;
+        }
+        // Show loading for variation
+        modal.showLoading(imageUrl, [imageUrl], undefined, 'variation');
+        try {
+            await chrome.runtime.sendMessage({
+                action: 'initiateModelVariation',
+                sourceImageSrc: imageUrl,
+                variationStrength: 'strong',
+            });
+        } catch (error: unknown) {
+            console.error('Content Script: Error sending strong variation message to background:', error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const modalNow = getTryOnModal();
+            modalNow.show(`Communication error with extension: ${errorMessage}`, true);
         }
     };
 
