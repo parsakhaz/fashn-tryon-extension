@@ -109,8 +109,8 @@ function getTryOnModal(): TryOnModalElement {
                     </div>
                     <div class="fashn-tryon-result-buttons">
                         <div class="fashn-variation-controls">
-                            <button id="fashn-variation-subtle-btn" class="fashn-result-button fashn-download-button">✨ Variation: Subtle</button>
-                            <button id="fashn-variation-strong-btn" class="fashn-result-button fashn-download-button">✨ Variation: Strong</button>
+                            <button id="fashn-variation-subtle-btn" class="fashn-result-button fashn-download-button">✨ Subtle Variation</button>
+                            <button id="fashn-variation-strong-btn" class="fashn-result-button fashn-download-button">✨ Strong Variation</button>
                         </div>
                         <div class="fashn-variation-history-controls">
                             <button id="fashn-undo-btn" class="fashn-result-button fashn-download-button" title="Undo">↶ Undo</button>
@@ -215,11 +215,11 @@ function getTryOnModal(): TryOnModalElement {
                             variationStrength: strength,
                         });
                         if (initialResponse && initialResponse.error) {
-                            btn.textContent = prevText || (strength === 'subtle' ? '✨ Variation: Subtle' : '✨ Variation: Strong');
+                            btn.textContent = prevText || (strength === 'subtle' ? '✨ Subtle Variation' : '✨ Strong Variation');
                             btn.disabled = false;
                         }
                     } catch {
-                        btn.textContent = strength === 'subtle' ? '✨ Variation: Subtle' : '✨ Variation: Strong';
+                        btn.textContent = strength === 'subtle' ? '✨ Subtle Variation' : '✨ Strong Variation';
                         btn.disabled = false;
                     }
                 };
@@ -512,8 +512,8 @@ chrome.runtime.onMessage.addListener((request) => {
         const modal = getTryOnModal();
         const variationSubtleBtn = modal.contentDiv.querySelector('#fashn-variation-subtle-btn') as HTMLButtonElement | null;
         const variationStrongBtn = modal.contentDiv.querySelector('#fashn-variation-strong-btn') as HTMLButtonElement | null;
-        if (variationSubtleBtn) { variationSubtleBtn.textContent = '✨ Variation: Subtle'; variationSubtleBtn.disabled = false; }
-        if (variationStrongBtn) { variationStrongBtn.textContent = '✨ Variation: Strong'; variationStrongBtn.disabled = false; }
+        if (variationSubtleBtn) { variationSubtleBtn.textContent = '✨ Subtle Variation'; variationSubtleBtn.disabled = false; }
+        if (variationStrongBtn) { variationStrongBtn.textContent = '✨ Strong Variation'; variationStrongBtn.disabled = false; }
         if (request.error) {
             console.error("Content Script: Model Variation Error from background:", request.error);
             modal.show(`Error: ${request.error}`, true);
