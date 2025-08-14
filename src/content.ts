@@ -7,6 +7,8 @@ interface TryOnModalElement extends HTMLDivElement {
     closeButton: HTMLButtonElement;
     lastGarmentImageUrl?: string;
     currentGarmentImageUrl?: string;
+    lastFashionModelImageUrl?: string;
+    currentMode?: 'tryon' | 'swap';
     variationHistory?: Record<number, { versions: string[]; index: number }>;
     show: (message: string, isError?: boolean, imageUrls?: string[] | string | null, mode?: 'tryon' | 'swap') => void;
     showLoading: (garmentImageUrl: string, modelImageUrls: string[], predictionIds?: string[], mode?: 'tryon' | 'swap') => void;
@@ -41,6 +43,7 @@ function getTryOnModal(): TryOnModalElement {
     document.body.appendChild(modal);
 
     modal.show = (message, isError = false, imageUrls = null, mode: 'tryon' | 'swap' = 'tryon') => {
+        modal.currentMode = mode;
         if (imageUrls) {
             // Handle multiple images or single image - always use carousel for consistency
             const images = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
@@ -95,7 +98,7 @@ function getTryOnModal(): TryOnModalElement {
                     </div>
                     <div class="fashn-tryon-result-buttons">
                         <button id="fashn-try-again-btn" class="fashn-result-button fashn-try-again-button">
-                            🔄 Try Again
+                            ${mode === 'swap' ? '🔄 Swap Again' : '🔄 Try Again'}
                         </button>
                         <button id="fashn-download-current-btn" class="fashn-result-button fashn-download-button">
                             💾 Download Current
@@ -130,21 +133,35 @@ function getTryOnModal(): TryOnModalElement {
                 }
             });
             
-            // Update lastGarmentImageUrl for "Try Again" functionality
+            // Update last image URL for retry functionality based on mode
             if (modal.currentGarmentImageUrl) {
-                modal.lastGarmentImageUrl = modal.currentGarmentImageUrl;
+                if (mode === 'swap') {
+                    modal.lastFashionModelImageUrl = modal.currentGarmentImageUrl;
+                } else {
+                    modal.lastGarmentImageUrl = modal.currentGarmentImageUrl;
+                }
             }
             
-            // Add try again functionality
+            // Add try again functionality (mode-aware)
             const tryAgainBtn = modal.contentDiv.querySelector('#fashn-try-again-btn') as HTMLButtonElement;
             if (tryAgainBtn) {
                 tryAgainBtn.onclick = () => {
                     modal.hide();
-                    if (modal.lastGarmentImageUrl) {
-                        const event = new CustomEvent('fashn-retry-tryon', { 
-                            detail: { garmentImageUrl: modal.lastGarmentImageUrl } 
-                        });
-                        document.dispatchEvent(event);
+                    const modeNow = modal.currentMode || 'tryon';
+                    if (modeNow === 'swap') {
+                        if (modal.lastFashionModelImageUrl) {
+                            const event = new CustomEvent('fashn-retry-modelswap', {
+                                detail: { fashionModelImageUrl: modal.lastFashionModelImageUrl }
+                            });
+                            document.dispatchEvent(event);
+                        }
+                    } else {
+                        if (modal.lastGarmentImageUrl) {
+                            const event = new CustomEvent('fashn-retry-tryon', { 
+                                detail: { garmentImageUrl: modal.lastGarmentImageUrl } 
+                            });
+                            document.dispatchEvent(event);
+                        }
                     }
                 };
             }
@@ -241,10 +258,17 @@ function getTryOnModal(): TryOnModalElement {
     };
 
     modal.showLoading = (garmentImageUrl, modelImageUrls, predictionIds, mode = 'tryon') => {
+        modal.currentMode = mode;
         // Remove carousel class for loading screen
         modal.classList.remove('fashn-modal-with-carousel');
         // Store garment image URL for later use in carousel
         modal.currentGarmentImageUrl = garmentImageUrl;
+        // Store appropriate last image URL for retry based on mode
+        if (mode === 'swap') {
+            modal.lastFashionModelImageUrl = garmentImageUrl;
+        } else {
+            modal.lastGarmentImageUrl = garmentImageUrl;
+        }
         
         const loadingHTML = `
             <div class="fashn-loading-container">
@@ -375,9 +399,11 @@ function setupCarousel(images: string[], resultImagesCount?: number) {
                 // Download all images including reference garment
                 for (let i = 0; i < images.length; i++) {
                     const isReference = i >= totalResultImages;
+                    const modal = getTryOnModal();
+                    const mode = modal.currentMode || 'tryon';
                     const filename = isReference 
-                        ? `fashn-original-garment-${Date.now()}.png`
-                        : `fashn-tryon-result-${i + 1}-${Date.now()}.png`;
+                        ? `fashn-original-${mode === 'swap' ? 'source' : 'garment'}-${Date.now()}.png`
+                        : `fashn-${mode === 'swap' ? 'modelswap' : 'tryon'}-result-${i + 1}-${Date.now()}.png`;
                     await downloadImage(images[i], null, filename);
                     await new Promise(resolve => setTimeout(resolve, 500)); // Small delay between downloads
                 }
@@ -567,6 +593,40 @@ document.addEventListener('fashn-retry-tryon', async (event: Event) => {
         }
     } catch (error: unknown) {
         console.error("Content Script: Error retrying try-on:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        modal.show(`Communication error with extension: ${errorMessage}`, true);
+    }
+});
+
+// Listen for retry model swap events
+document.addEventListener('fashn-retry-modelswap', async (event: Event) => {
+    const customEvent = event as CustomEvent;
+    const { fashionModelImageUrl } = customEvent.detail as { fashionModelImageUrl: string };
+
+    const modal = getTryOnModal();
+
+    if (!fashionModelImageUrl) {
+        modal.show('Could not retry model swap. Missing source image.', true);
+        return;
+    }
+
+    // Show loading screen and initiate new model swap
+    modal.showLoading(fashionModelImageUrl, [fashionModelImageUrl], undefined, 'swap');
+    modal.lastFashionModelImageUrl = fashionModelImageUrl;
+
+    try {
+        const initialResponse = await chrome.runtime.sendMessage({
+            action: "initiateModelSwap",
+            fashionModelImageSrc: fashionModelImageUrl,
+        });
+
+        if (initialResponse && initialResponse.error) {
+            modal.show(`Error: ${initialResponse.error}`, true);
+        } else if (initialResponse && initialResponse.status === "processing") {
+            modal.showLoading(fashionModelImageUrl, [fashionModelImageUrl], initialResponse.predictionIds, 'swap');
+        }
+    } catch (error: unknown) {
+        console.error("Content Script: Error retrying model swap:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
         modal.show(`Communication error with extension: ${errorMessage}`, true);
     }
@@ -779,9 +839,6 @@ function addTryOnButtonToElement(element: Element, imageUrl: string) {
 
         // Show the loading screen for model swap (no uploaded model images needed)
         modal.showLoading(imageUrl, [imageUrl], undefined, 'swap');
-
-        // Store the fashion model URL for potential retry functionality
-        modal.lastGarmentImageUrl = imageUrl;
 
         try {
             // Send model swap request to background script
