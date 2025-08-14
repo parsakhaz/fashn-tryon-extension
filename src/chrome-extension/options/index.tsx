@@ -6,9 +6,34 @@ const Options = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  
+  // Model swap settings
+  const [modelSwapPrompt, setModelSwapPrompt] = useState<string>("");
+  const [modelSwapBackgroundChange, setModelSwapBackgroundChange] = useState<boolean>(false);
+  const [modelSwapSeed, setModelSwapSeed] = useState<number | "">("");
+  const [modelSwapLoraUrl, setModelSwapLoraUrl] = useState<string>("");
+
+  // Variation settings (strength controlled via in-modal buttons; no dropdown here)
+  const [variationSeed, setVariationSeed] = useState<number | "">("");
+  const [variationLoraUrl, setVariationLoraUrl] = useState<string>("");
+  const [variationOutputFormat, setVariationOutputFormat] = useState<"png" | "jpeg">("png");
+  const [variationReturnBase64, setVariationReturnBase64] = useState<boolean>(false);
 
   useEffect(() => {
-    chrome.storage.local.get(["modelImagesBase64", "fashnApiKey"], (result) => {
+    chrome.storage.local.get([
+      "modelImagesBase64", 
+      "fashnApiKey", 
+      "modelSwapPrompt", 
+      "modelSwapBackgroundChange", 
+      "modelSwapSeed", 
+      "modelSwapLoraUrl",
+      // variation
+      "variationStrength",
+      "variationSeed",
+      "variationLoraUrl",
+      "variationOutputFormat",
+      "variationReturnBase64"
+    ], (result) => {
       console.log("Options: Storage result:", result);
       console.log("Options: Model images exist:", !!result.modelImagesBase64);
       console.log("Options: API key exists:", !!result.fashnApiKey);
@@ -17,6 +42,36 @@ const Options = () => {
       }
       if (result.fashnApiKey) {
         setApiKey(result.fashnApiKey);
+      }
+      // Load model swap settings
+      if (result.modelSwapPrompt) {
+        setModelSwapPrompt(result.modelSwapPrompt);
+      }
+      if (typeof result.modelSwapBackgroundChange === 'boolean') {
+        setModelSwapBackgroundChange(result.modelSwapBackgroundChange);
+      }
+      if (typeof result.modelSwapSeed === 'number') {
+        setModelSwapSeed(result.modelSwapSeed);
+      } else {
+        setModelSwapSeed("");
+      }
+      if (result.modelSwapLoraUrl) {
+        setModelSwapLoraUrl(result.modelSwapLoraUrl);
+      }
+      // Load variation settings (no strength saved here)
+      if (typeof result.variationSeed === 'number') {
+        setVariationSeed(result.variationSeed);
+      } else {
+        setVariationSeed("");
+      }
+      if (typeof result.variationLoraUrl === 'string') {
+        setVariationLoraUrl(result.variationLoraUrl);
+      }
+      if (result.variationOutputFormat === 'png' || result.variationOutputFormat === 'jpeg') {
+        setVariationOutputFormat(result.variationOutputFormat);
+      }
+      if (typeof result.variationReturnBase64 === 'boolean') {
+        setVariationReturnBase64(result.variationReturnBase64);
       }
     });
   }, []);
@@ -99,6 +154,45 @@ const Options = () => {
     });
   };
 
+  const saveModelSwapSettings = () => {
+    const settingsBase = {
+      modelSwapPrompt: modelSwapPrompt.trim(),
+      modelSwapBackgroundChange,
+      modelSwapLoraUrl: modelSwapLoraUrl.trim()
+    } as const;
+
+    if (modelSwapSeed === "") {
+      chrome.storage.local.remove("modelSwapSeed", () => {
+        chrome.storage.local.set(settingsBase, () => {
+          showTemporaryMessage("Model swap settings saved!");
+        });
+      });
+    } else {
+      chrome.storage.local.set({ ...settingsBase, modelSwapSeed }, () => {
+        showTemporaryMessage("Model swap settings saved!");
+      });
+    }
+  };
+
+  const saveVariationSettings = () => {
+    const settingsBase = {
+      variationLoraUrl: variationLoraUrl.trim(),
+      variationOutputFormat,
+      variationReturnBase64,
+    } as const;
+    if (variationSeed === "") {
+      chrome.storage.local.remove("variationSeed", () => {
+        chrome.storage.local.set(settingsBase, () => {
+          showTemporaryMessage("Model variation settings saved!");
+        });
+      });
+    } else {
+      chrome.storage.local.set({ ...settingsBase, variationSeed }, () => {
+        showTemporaryMessage("Model variation settings saved!");
+      });
+    }
+  };
+
   return (
     <div className="p-6 min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAFAFA' }}>
       <div className="max-w-4xl w-full p-8 shadow-2xl" style={{ backgroundColor: 'white' }}>
@@ -175,7 +269,7 @@ const Options = () => {
         <div>
           <h2 className="text-2xl font-semibold mb-4" style={{ color: '#1A1A1A' }}>FASHN AI API Key</h2>
           <p className="text-sm mb-4" style={{ color: '#333333' }}>
-            Enter your API key from FASHN AI. This is required to enable the try-on feature.
+            Enter your API key from FASHN AI. This is required to enable both try-on and model swap features.
             You can get your key from <a href="https://app.fashn.ai/api" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70" style={{ color: '#1A1A1A' }}>FASHN AI Settings</a>.
           </p>
           <input
@@ -192,13 +286,205 @@ const Options = () => {
           />
           <button
             onClick={saveApiKey}
-            className="w-full font-bold py-3 px-4 shadow-md hover:shadow-lg transition-all duration-200 ease-in-out transform hover:scale-105 hover:opacity-90"
+            className="w-full font-bold py-3 px-4 shadow-md hover:shadow-lg transition-all duration-200 ease-in-out transform hover:scale-105 hover:opacity-90 mb-10"
             style={{ 
               backgroundColor: '#1A1A1A', 
               color: '#FAFAFA' 
             }}
           >
             Save API Key
+          </button>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-semibold mb-4" style={{ color: '#1A1A1A' }}>Model Swap Settings</h2>
+          <p className="text-sm mb-6" style={{ color: '#333333' }}>
+            Configure model swap preferences. Model swap transforms the identity of fashion models while preserving clothing details.
+          </p>
+          
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>
+                Transformation Prompt
+              </label>
+              <p className="text-xs mb-2" style={{ color: '#666666' }}>
+                Describe the desired model identity (e.g., "Asian woman with blue hair", "tall man with beard"). Leave empty for random transformation.
+              </p>
+              <input
+                type="text"
+                value={modelSwapPrompt}
+                onChange={(e) => setModelSwapPrompt(e.target.value)}
+                placeholder="e.g., Asian woman with blue hair"
+                className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
+                style={{ 
+                  borderColor: '#333333',
+                  backgroundColor: '#FAFAFA',
+                  color: '#1A1A1A'
+                }}
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={modelSwapBackgroundChange}
+                  onChange={(e) => setModelSwapBackgroundChange(e.target.checked)}
+                  className="w-4 h-4 rounded focus:ring-2"
+                  style={{ accentColor: '#1A1A1A' }}
+                />
+                <span className="text-sm font-medium" style={{ color: '#1A1A1A' }}>
+                  Allow background changes
+                </span>
+              </label>
+              <p className="text-xs mt-1 ml-7" style={{ color: '#666666' }}>
+                When enabled, the background may be modified according to your prompt. When disabled, the original background is preserved.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>
+                Seed Value
+              </label>
+              <p className="text-xs mb-2" style={{ color: '#666666' }}>
+                Defaults to 42 on the first run. Leave blank to randomize thereafter, or set a value to reproduce results.
+              </p>
+              <input
+                type="number"
+                value={modelSwapSeed}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") {
+                    setModelSwapSeed("");
+                    return;
+                  }
+                  const parsed = parseInt(v, 10);
+                  setModelSwapSeed(Number.isNaN(parsed) ? "" : parsed);
+                }}
+                min="0"
+                max="4294967295"
+                className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
+                style={{ 
+                  borderColor: '#333333',
+                  backgroundColor: '#FAFAFA',
+                  color: '#1A1A1A'
+                }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>
+                LoRA URL (Optional)
+              </label>
+              <p className="text-xs mb-2" style={{ color: '#666666' }}>
+                URL to FLUX-compatible LoRA weights (.safetensors) for custom identity generation. Must be under 256MB.
+              </p>
+              <input
+                type="url"
+                value={modelSwapLoraUrl}
+                onChange={(e) => setModelSwapLoraUrl(e.target.value)}
+                placeholder="https://example.com/custom_identity.safetensors"
+                className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
+                style={{ 
+                  borderColor: '#333333',
+                  backgroundColor: '#FAFAFA',
+                  color: '#1A1A1A'
+                }}
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={saveModelSwapSettings}
+            className="w-full font-bold py-3 px-4 shadow-md hover:shadow-lg transition-all duration-200 ease-in-out transform hover:scale-105 hover:opacity-90 mt-6"
+            style={{ 
+              backgroundColor: '#1A1A1A', 
+              color: '#FAFAFA' 
+            }}
+          >
+            Save Model Swap Settings
+          </button>
+        </div>
+
+        <div className="mt-10">
+          <h2 className="text-2xl font-semibold mb-4" style={{ color: '#1A1A1A' }}>Model Variation Settings</h2>
+          <p className="text-sm mb-6" style={{ color: '#333333' }}>
+            Configure model variation. Variations create subtle or strong changes to the current result image while maintaining composition.
+          </p>
+          <div className="space-y-6">
+
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>Seed Value</label>
+              <p className="text-xs mb-2" style={{ color: '#666666' }}>
+                Defaults to 42 on the first run. Leave blank to randomize thereafter, or set a value to reproduce results.
+              </p>
+              <input
+                type="number"
+                value={variationSeed}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") {
+                    setVariationSeed("");
+                    return;
+                  }
+                  const parsed = parseInt(v, 10);
+                  setVariationSeed(Number.isNaN(parsed) ? "" : parsed);
+                }}
+                min="0"
+                max="4294967295"
+                className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
+                style={{ borderColor: '#333333', backgroundColor: '#FAFAFA', color: '#1A1A1A' }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>LoRA URL (Optional)</label>
+              <input
+                type="url"
+                value={variationLoraUrl}
+                onChange={(e) => setVariationLoraUrl(e.target.value)}
+                placeholder="https://example.com/custom_identity.safetensors"
+                className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
+                style={{ borderColor: '#333333', backgroundColor: '#FAFAFA', color: '#1A1A1A' }}
+              />
+            </div>
+
+            <details>
+              <summary className="text-sm font-medium" style={{ color: '#1A1A1A', cursor: 'pointer' }}>Advanced</summary>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>Output Format</label>
+                  <select
+                    value={variationOutputFormat}
+                    onChange={(e) => setVariationOutputFormat((e.target.value as 'png' | 'jpeg'))}
+                    className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
+                    style={{ borderColor: '#333333', backgroundColor: '#FAFAFA', color: '#1A1A1A' }}
+                  >
+                    <option value="png">PNG (highest quality)</option>
+                    <option value="jpeg">JPEG (faster)</option>
+                  </select>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <input
+                    id="returnBase64"
+                    type="checkbox"
+                    checked={variationReturnBase64}
+                    onChange={(e) => setVariationReturnBase64(e.target.checked)}
+                    className="w-4 h-4 rounded focus:ring-2"
+                    style={{ accentColor: '#1A1A1A' }}
+                  />
+                  <label htmlFor="returnBase64" className="text-sm" style={{ color: '#1A1A1A' }}>Return Base64 (enhanced privacy)</label>
+                </div>
+              </div>
+            </details>
+
+          </div>
+          <button
+            onClick={saveVariationSettings}
+            className="w-full font-bold py-3 px-4 shadow-md hover:shadow-lg transition-all duration-200 ease-in-out transform hover:scale-105 hover:opacity-90 mt-6"
+            style={{ backgroundColor: '#1A1A1A', color: '#FAFAFA' }}
+          >
+            Save Model Variation Settings
           </button>
         </div>
       </div>
