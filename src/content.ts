@@ -297,7 +297,9 @@ function getTryOnModal(): TryOnModalElement {
                     
                     <div class="fashn-image-section">
                         <div class="fashn-image-wrapper">
-                            <img src="${garmentImageUrl}" alt="Selected Garment" class="fashn-loading-image" />
+                            <img src="${garmentImageUrl}" 
+                                 alt="${mode === 'swap' ? 'Transformed Output (rendering...)' : 'Selected Garment'}" 
+                                 class="fashn-loading-image ${mode === 'swap' ? 'fashn-loading-output-placeholder' : ''}" />
                         </div>
                         <p class="fashn-image-label">${mode === 'swap' ? 'Transformed Output' : 'Selected Item'}</p>
                     </div>

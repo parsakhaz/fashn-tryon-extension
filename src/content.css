@@ -351,6 +351,12 @@
     object-position: center;
 }
 
+/* During model swap, right-side output placeholder should appear subtly blurred */
+.fashn-loading-output-placeholder {
+    filter: blur(4px) grayscale(10%);
+    opacity: 0.85;
+}
+
 /* Multiple Models Grid */
 .fashn-models-grid {
     display: grid;
