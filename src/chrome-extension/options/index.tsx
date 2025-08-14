@@ -1,4 +1,5 @@
 import { useState, useEffect, ChangeEvent } from "react";
+import { resizeAndEncodeToJpegDataUrl } from "../../utils/image";
 import "../global.css";
 
 const Options = () => {
@@ -90,12 +91,11 @@ const Options = () => {
     }, 3000);
   };
 
-  const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
     const newImages: string[] = [];
-    let processedCount = 0;
     const totalFiles = Math.min(files.length, 4 - modelImages.length); // Limit to remaining slots
 
     if (totalFiles === 0) {
@@ -103,32 +103,23 @@ const Options = () => {
       return;
     }
 
-    for (let i = 0; i < totalFiles; i++) {
-      const file = files[i];
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        showTemporaryMessage(`Image ${file.name} exceeds 5MB limit.`, true);
-        continue;
+    try {
+      for (let i = 0; i < totalFiles; i++) {
+        const file = files[i];
+        // Resize to max 2000px and re-encode to JPEG @ quality 0.95
+        const dataUrl = await resizeAndEncodeToJpegDataUrl(file, { maxDimension: 2000, quality: 0.95 });
+        newImages.push(dataUrl);
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        newImages.push(base64String);
-        processedCount++;
-
-        if (processedCount === totalFiles) {
-          const updatedImages = [...modelImages, ...newImages];
-          setModelImages(updatedImages);
-          chrome.storage.local.set({ modelImagesBase64: updatedImages }, () => {
-            console.log("Options: Model images saved to storage successfully");
-            showTemporaryMessage(`${newImages.length} image(s) added successfully!`);
-          });
-        }
-      };
-      reader.onerror = () => {
-        showTemporaryMessage(`Failed to read image file: ${file.name}`, true);
-      };
-      reader.readAsDataURL(file);
+      const updatedImages = [...modelImages, ...newImages];
+      setModelImages(updatedImages);
+      chrome.storage.local.set({ modelImagesBase64: updatedImages }, () => {
+        console.log("Options: Model images saved to storage successfully");
+        showTemporaryMessage(`${newImages.length} image(s) added successfully!`);
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      showTemporaryMessage(`Failed to process one or more images: ${message}`, true);
     }
   };
 
