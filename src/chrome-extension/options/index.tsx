@@ -13,8 +13,7 @@ const Options = () => {
   const [modelSwapSeed, setModelSwapSeed] = useState<number | "">("");
   const [modelSwapLoraUrl, setModelSwapLoraUrl] = useState<string>("");
 
-  // Variation settings
-  const [variationStrength, setVariationStrength] = useState<"subtle" | "strong">("subtle");
+  // Variation settings (strength controlled via in-modal buttons; no dropdown here)
   const [variationSeed, setVariationSeed] = useState<number | "">("");
   const [variationLoraUrl, setVariationLoraUrl] = useState<string>("");
   const [variationOutputFormat, setVariationOutputFormat] = useState<"png" | "jpeg">("png");
@@ -59,10 +58,7 @@ const Options = () => {
       if (result.modelSwapLoraUrl) {
         setModelSwapLoraUrl(result.modelSwapLoraUrl);
       }
-      // Load variation settings
-      if (result.variationStrength === "subtle" || result.variationStrength === "strong") {
-        setVariationStrength(result.variationStrength);
-      }
+      // Load variation settings (no strength saved here)
       if (typeof result.variationSeed === 'number') {
         setVariationSeed(result.variationSeed);
       } else {
@@ -180,7 +176,6 @@ const Options = () => {
 
   const saveVariationSettings = () => {
     const settingsBase = {
-      variationStrength,
       variationLoraUrl: variationLoraUrl.trim(),
       variationOutputFormat,
       variationReturnBase64,
@@ -417,18 +412,6 @@ const Options = () => {
             Configure model variation. Variations create subtle or strong changes to the current result image while maintaining composition.
           </p>
           <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>Variation Strength</label>
-              <select
-                value={variationStrength}
-                onChange={(e) => setVariationStrength((e.target.value as 'subtle' | 'strong'))}
-                className="w-full px-4 py-3 border shadow-sm focus:outline-none focus:ring-2 focus:border-transparent transition-shadow duration-150"
-                style={{ borderColor: '#333333', backgroundColor: '#FAFAFA', color: '#1A1A1A' }}
-              >
-                <option value="subtle">Subtle (default)</option>
-                <option value="strong">Strong</option>
-              </select>
-            </div>
 
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: '#1A1A1A' }}>Seed Value</label>
