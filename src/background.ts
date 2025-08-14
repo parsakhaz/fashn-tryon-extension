@@ -13,15 +13,26 @@ async function imageToDataURL(url: string): Promise<string> {
     if (!blob.type.startsWith('image/')) {
         throw new Error(`Fetched content is not an image: type ${blob.type} from ${url}`);
     }
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(new Error(`FileReader error for ${url}: ${error}`));
-      reader.readAsDataURL(blob);
-    });
+    return await resizeAndEncode(blob);
   } catch (error) {
     console.error(`Error in imageToDataURL for ${url}:`, error);
     throw error; // Re-throw to be caught by the caller
+  }
+}
+
+import { resizeAndEncodeToJpegDataUrl } from './utils/image';
+
+async function resizeAndEncode(blob: Blob): Promise<string> {
+  try {
+    return await resizeAndEncodeToJpegDataUrl(blob, { maxDimension: 2000, quality: 0.95 });
+  } catch (e) {
+    // Fallback: return original base64 if resize fails for any reason
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(new Error(`FileReader error during fallback: ${error}`));
+      reader.readAsDataURL(blob);
+    });
   }
 }
 
